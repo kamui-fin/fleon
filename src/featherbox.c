@@ -32,6 +32,21 @@ void initialize() {
     xcb_flush(conn);
 }
 
+/* check if any other window manager is accessing the display */
+static int xcb_checkotherwm(void) {
+    xcb_generic_error_t *error;
+    unsigned int values[1] = {XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT|
+                              XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY|
+                              XCB_EVENT_MASK_PROPERTY_CHANGE|
+                              XCB_EVENT_MASK_BUTTON_PRESS};
+
+    /* error and quit if found */
+    error = xcb_request_check(conn, xcb_change_window_attributes_checked(conn, screen->root, XCB_CW_EVENT_MASK, values));
+    xcb_flush(conn);
+    if (error) return 1;
+    return 0;
+}
+
 int main(int argc, char *argv[]) {
     initialize();
 
