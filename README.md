@@ -7,3 +7,10 @@
 
 You will need the following dependencies first:
 - [`libxcb-1.14`](https://xcb.freedesktop.org/) 
+- [`libxml-2.9.12-r3`](http://xmlsoft.org/)
+
+```sh
+git clone https://github.com/Featherbox/Featherbox.git
+cd Featherbox
+make
+```

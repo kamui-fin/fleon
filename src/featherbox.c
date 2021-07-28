@@ -43,6 +43,11 @@ int main(int argc, char *argv[]) {
     while (1) {
         e = xcb_wait_for_event(conn);
         switch (e->response_type & ~0x80) {
+        case XCB_MAP_REQUEST: {
+            xcb_map_request_event_t *ev = (xcb_map_request_event_t *)e;
+            xcb_map_window(conn, ev->window);
+            break;
+        }
         case XCB_KEY_PRESS: {
             xcb_key_press_event_t *ev = (xcb_key_press_event_t *)e;
             ILOG("Pressed key")
@@ -60,5 +65,6 @@ int main(int argc, char *argv[]) {
             exit(1);
             break;
         }
+        xcb_flush(conn);
     }
 }

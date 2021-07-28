@@ -11,8 +11,10 @@
 #define WHITE "\033[37m"
 
 #define LOG(fd, color, level, msg, ...)                                        \
-    fprintf(fd, __FILE__ ":%d" color level RESET msg "\n", __LINE__,           \
-            ##__VA_ARGS__);
+    fprintf(fd,                                                                \
+            __FILE__ ":%d"                                                     \
+                     " " color level ":" RESET " " msg "\n",                   \
+            __LINE__, ##__VA_ARGS__);
 
 // INFO
 #define ILOG(msg, ...) LOG(stdout, GREEN, "INFO", msg, ##__VA_ARGS__);
