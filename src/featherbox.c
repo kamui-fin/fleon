@@ -17,7 +17,8 @@ void quit(int status) {
 
 bool existing_wm(void) {
     xcb_generic_error_t *error;
-    unsigned int values[] = {ROOT_EVENT_MASK};
+    uint32_t values[] = {ROOT_EVENT_MASK};
+    // error and quit if found
     error = xcb_request_check(
         conn, xcb_change_window_attributes_checked(conn, screen->root,
                                                    XCB_CW_EVENT_MASK, values));
@@ -114,18 +115,18 @@ int main(int argc, char *argv[]) {
 
 // resize
 static inline void xcb_resize(xcb_connection_t *con, xcb_window_t win, int w, int h) {
-    unsigned int pos[2] = { w, h };
+    uint32_t pos[2] = { w, h };
     xcb_configure_window(con, win, XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT, pos);
 }
 
 // move windows
 static inline void xcb_move(xcb_connection_t *con, xcb_window_t win, int x, int y) {
-    unsigned int pos[2] = { x, y };
+    uint32_t pos[2] = { x, y };
     xcb_configure_window(con, win, XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, pos);
 }
 
 // raise window
 static inline void xcb_raise_window(xcb_connection_t *con, xcb_window_t win) {
-    unsigned int arg[1] = { XCB_STACK_MODE_ABOVE };
+    uint32_t arg[1] = { XCB_STACK_MODE_ABOVE };
     xcb_configure_window(con, win, XCB_CONFIG_WINDOW_STACK_MODE, arg);
 }
