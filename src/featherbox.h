@@ -1,3 +1,4 @@
+#include <xcb/xproto.h>
 #define LENGTH(array) (sizeof(array) / sizeof(array[0]))
 
 #define RESET "\033[0m"
@@ -15,6 +16,9 @@
             __FILE__ ":%d"                                                     \
                      " " color level ":" RESET " " msg "\n",                   \
             __LINE__, ##__VA_ARGS__);
+
+// TRACE
+#define TLOG(msg, ...) LOG(stdout, WHITE, "TRACE", msg, ##__VA_ARGS__);
 
 // INFO
 #define ILOG(msg, ...) LOG(stdout, GREEN, "INFO", msg, ##__VA_ARGS__);
@@ -36,3 +40,9 @@
      XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_PROPERTY_CHANGE |     \
      XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE |             \
      XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_KEY_RELEASE)
+
+struct client {
+    struct client *next;
+    bool isurgent, istransient, isfullscrn, isfloating;
+    xcb_window_t win;
+};
