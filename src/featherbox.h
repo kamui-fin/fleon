@@ -44,6 +44,9 @@
      XCB_EVENT_MASK_POINTER_MOTION)
 
 struct client {
-    bool isurgent, istransient, isfullscrn, isfloating;
+    struct client *next;
+    bool is_urgent, is_transient, is_floating, is_fullscreen, is_maximized, is_minimized;
     xcb_window_t win;
 };
+
+static void focusurgent();
