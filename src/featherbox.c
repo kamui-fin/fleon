@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
+
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
 #include "featherbox.h"
@@ -8,9 +10,16 @@ xcb_connection_t *conn;
 const xcb_setup_t *setup;
 xcb_screen_t *screen;
 
-void _log(FILE *fd, char *color, char *level, char *msg) {
-    fprintf(fd, "%s:%d %s%s: " RESET "%s\n", __FILE__, __LINE__, color, level,
-            msg);
+bool existing_wm(void) {
+    xcb_generic_error_t *error;
+    unsigned int values[] = {EVENT_MASK};
+
+    // error and quit if found
+    error = xcb_request_check(
+        conn, xcb_change_window_attributes_checked(conn, screen->root,
+                                                   XCB_CW_EVENT_MASK, values));
+    xcb_flush(conn);
+    return error != NULL;
 }
 
 void initialize() {
@@ -22,34 +31,14 @@ void initialize() {
     }
     setup = xcb_get_setup(conn);
     screen = xcb_setup_roots_iterator(setup).data;
-
-    const static uint32_t values[] = {
-        XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT |
-        XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_BUTTON_PRESS |
-        XCB_EVENT_MASK_BUTTON_RELEASE | XCB_EVENT_MASK_KEY_PRESS |
-        XCB_EVENT_MASK_KEY_RELEASE};
-    xcb_change_window_attributes(conn, screen->root, XCB_CW_EVENT_MASK, values);
-    xcb_flush(conn);
-}
-
-/* check if any other window manager is accessing the display */
-static int xcb_checkotherwm(void) {
-    xcb_generic_error_t *error;
-    unsigned int values[1] = {XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT|
-                              XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY|
-                              XCB_EVENT_MASK_PROPERTY_CHANGE|
-                              XCB_EVENT_MASK_BUTTON_PRESS};
-
-    /* error and quit if found */
-    error = xcb_request_check(conn, xcb_change_window_attributes_checked(conn, screen->root, XCB_CW_EVENT_MASK, values));
-    xcb_flush(conn);
-    if (error) return 1;
-    return 0;
+    if (existing_wm()) {
+        FLOG("A window manager is already running");
+        exit(1);
+    }
 }
 
 int main(int argc, char *argv[]) {
     initialize();
-
     xcb_generic_event_t *e;
     while (1) {
         e = xcb_wait_for_event(conn);
