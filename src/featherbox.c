@@ -7,7 +7,6 @@
 xcb_connection_t *conn;
 const xcb_setup_t *setup;
 xcb_screen_t *screen;
-xcb_window_t root_window;
 
 void _log(FILE *fd, char *color, char *level, char *msg) {
     fprintf(fd, "%s:%d %s%s: " RESET "%s\n", __FILE__, __LINE__, color, level,
@@ -23,17 +22,13 @@ void initialize() {
     }
     setup = xcb_get_setup(conn);
     screen = xcb_setup_roots_iterator(setup).data;
-    root_window = screen->root;
 
     const static uint32_t values[] = {
-        XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT,
-        XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY,
-        XCB_EVENT_MASK_BUTTON_PRESS,
-        XCB_EVENT_MASK_BUTTON_RELEASE,
-        XCB_EVENT_MASK_KEY_PRESS,
-        XCB_EVENT_MASK_KEY_RELEASE,
-    };
-    xcb_change_window_attributes(conn, root_window, XCB_CW_EVENT_MASK, values);
+        XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT |
+        XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_BUTTON_PRESS |
+        XCB_EVENT_MASK_BUTTON_RELEASE | XCB_EVENT_MASK_KEY_PRESS |
+        XCB_EVENT_MASK_KEY_RELEASE};
+    xcb_change_window_attributes(conn, screen->root, XCB_CW_EVENT_MASK, values);
     xcb_flush(conn);
 }
 
