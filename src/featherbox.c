@@ -51,56 +51,46 @@ void initialize() {
 
 void close_window(struct client *c) { xcb_destroy_window(conn, c->win); }
 
+static inline void resize_win(xcb_connection_t *con, xcb_window_t win, int w,
+                              int h) {
+    uint32_t pos[2] = {w, h};
+    xcb_configure_window(
+        con, win, XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT, pos);
+}
+
+static inline void move_win(xcb_connection_t *con, xcb_window_t win, int x,
+                            int y) {
+    uint32_t pos[2] = {x, y};
+    xcb_configure_window(con, win, XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y,
+                         pos);
+}
+
+static inline void raise_win(xcb_connection_t *con, xcb_window_t win) {
+    uint32_t arg[1] = {XCB_STACK_MODE_ABOVE};
+    xcb_configure_window(con, win, XCB_CONFIG_WINDOW_STACK_MODE, arg);
+}
+
+void on_map_request(xcb_generic_event_t *e) {
+    xcb_map_request_event_t *ev = (xcb_map_request_event_t *)e;
+    xcb_map_window(conn, ev->window);
+}
+
 int main(int argc, char *argv[]) {
     initialize();
     xcb_generic_event_t *e;
+
+    typedef void(ev_handler_t)(xcb_generic_event_t *);
+    void (*handlers[30])(xcb_generic_event_t *) = {
+        [XCB_MAP_REQUEST] = &on_map_request,
+    };
+
     while (1) {
         e = xcb_wait_for_event(conn);
-        switch (e->response_type & ~0x80) {
-        case XCB_CREATE_NOTIFY: {
-            break;
-        }
-        case XCB_DESTROY_NOTIFY: {
-            break;
-        }
-        case XCB_MAP_NOTIFY: {
-            break;
-        }
-        case XCB_MAP_REQUEST: {
-            xcb_map_request_event_t *ev = (xcb_map_request_event_t *)e;
-            xcb_map_window(conn, ev->window);
-            break;
-        }
-        case XCB_UNMAP_NOTIFY: {
-            break;
-        }
-        case XCB_CONFIGURE_NOTIFY: {
-            break;
-        }
-        case XCB_CONFIGURE_REQUEST: {
-            break;
-        }
-        case XCB_KEY_PRESS: {
-            break;
-        }
-        case XCB_KEY_RELEASE: {
-            break;
-        }
-        case XCB_BUTTON_PRESS: {
-            xcb_button_press_event_t *ev = (xcb_button_press_event_t *)e;
-            break;
-        }
-        case XCB_BUTTON_RELEASE: {
-            break;
-        }
-        case XCB_MOTION_NOTIFY: {
-            xcb_motion_notify_event_t *ev = (xcb_motion_notify_event_t *)e;
-            break;
-        }
-        default: {
+        ev_handler_t *handler = handlers[e->response_type & ~0x80];
+        if (handler) {
+            handler(e);
+        } else {
             TLOG("Ignoring event")
-            break;
-        }
         }
         free(e);
         if (xcb_connection_has_error(conn)) {
@@ -110,23 +100,4 @@ int main(int argc, char *argv[]) {
         }
         xcb_flush(conn);
     }
-}
-
-
-// resize
-static inline void xcb_resize(xcb_connection_t *con, xcb_window_t win, int w, int h) {
-    uint32_t pos[2] = { w, h };
-    xcb_configure_window(con, win, XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT, pos);
-}
-
-// move windows
-static inline void xcb_move(xcb_connection_t *con, xcb_window_t win, int x, int y) {
-    uint32_t pos[2] = { x, y };
-    xcb_configure_window(con, win, XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, pos);
-}
-
-// raise window
-static inline void xcb_raise_window(xcb_connection_t *con, xcb_window_t win) {
-    uint32_t arg[1] = { XCB_STACK_MODE_ABOVE };
-    xcb_configure_window(con, win, XCB_CONFIG_WINDOW_STACK_MODE, arg);
 }
