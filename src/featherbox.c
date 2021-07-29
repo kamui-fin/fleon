@@ -17,9 +17,7 @@ void quit(int status) {
 
 bool existing_wm(void) {
     xcb_generic_error_t *error;
-    unsigned int values[] = {EVENT_MASK};
-
-    // error and quit if found
+    unsigned int values[] = {ROOT_EVENT_MASK};
     error = xcb_request_check(
         conn, xcb_change_window_attributes_checked(conn, screen->root,
                                                    XCB_CW_EVENT_MASK, values));
@@ -42,11 +40,11 @@ void initialize() {
     xcb_grab_button(conn, 0, screen->root,
                     XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE,
                     XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC, screen->root,
-                    XCB_NONE, XCB_BUTTON_INDEX_1, XCB_MOD_MASK_4);
+                    XCB_NONE, XCB_BUTTON_INDEX_1, XCB_MOD_MASK_1);
     xcb_grab_button(conn, 0, screen->root,
                     XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE,
                     XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC, screen->root,
-                    XCB_NONE, XCB_BUTTON_INDEX_3, XCB_MOD_MASK_4);
+                    XCB_NONE, XCB_BUTTON_INDEX_3, XCB_MOD_MASK_1);
     xcb_flush(conn);
 }
 
@@ -88,9 +86,14 @@ int main(int argc, char *argv[]) {
             break;
         }
         case XCB_BUTTON_PRESS: {
+            xcb_button_press_event_t *ev = (xcb_button_press_event_t *)e;
             break;
         }
         case XCB_BUTTON_RELEASE: {
+            break;
+        }
+        case XCB_MOTION_NOTIFY: {
+            xcb_motion_notify_event_t *ev = (xcb_motion_notify_event_t *)e;
             break;
         }
         default: {

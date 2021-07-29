@@ -1,4 +1,5 @@
 #include <xcb/xproto.h>
+
 #define LENGTH(array) (sizeof(array) / sizeof(array[0]))
 
 #define RESET "\033[0m"
@@ -35,14 +36,14 @@
 // FATAL
 #define FLOG(msg, ...) LOG(stderr, RED, "FATAL", msg, ##__VA_ARGS__);
 
-#define EVENT_MASK                                                             \
+#define ROOT_EVENT_MASK                                                        \
     (XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT |                                    \
      XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_PROPERTY_CHANGE |     \
      XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE |             \
-     XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_KEY_RELEASE)
+     XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_KEY_RELEASE |                   \
+     XCB_EVENT_MASK_POINTER_MOTION)
 
 struct client {
-    struct client *next;
     bool isurgent, istransient, isfullscrn, isfloating;
     xcb_window_t win;
 };
