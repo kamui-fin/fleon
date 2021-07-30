@@ -1,4 +1,4 @@
-#define LENGTH(array) (sizeof(array) / sizeof(array[0]))
+#define LENGTH(array) (sizeof(array) / sizeof(*array))
 
 #define RESET "\033[0m"
 #define BLACK "\033[30m"

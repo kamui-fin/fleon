@@ -10,6 +10,7 @@
 #include "wm.h"
 
 /* Global state */
+struct window_mgr wm;
 xcb_connection_t *conn;
 const xcb_setup_t *setup;
 xcb_screen_t *screen;
@@ -20,6 +21,11 @@ struct client *focused;
 xcb_get_geometry_reply_t *geometry;
 xcb_query_pointer_reply_t *pointer;
 struct client *mouse_on;
+
+xcb_key_symbols_t *keysyms;
+static struct keybind keybinds[] = {{XCB_MOD_MASK_1, XK_w, close_focused},
+                                    {XCB_MOD_MASK_1, XK_f, change_fullscreen},
+                                    {XCB_MOD_MASK_1, XK_s, change_floating}};
 
 struct client *find_client(xcb_window_t w) {
     struct client *head = clients;
@@ -34,7 +40,14 @@ struct client *find_client(xcb_window_t w) {
 
 void client_add(xcb_window_t w) {
     struct client *new_client = malloc(sizeof(struct client));
+    xcb_get_geometry_reply_t *geom =
+        xcb_get_geometry_reply(conn, xcb_get_geometry(conn, w), NULL);
     new_client->win = w;
+    new_client->geom.x = geom->x;
+    new_client->geom.y = geom->y;
+    new_client->geom.w = geom->width;
+    new_client->geom.h = geom->height;
+    new_client->border_size = geom->border_width;
     new_client->next = clients;
     clients = new_client;
 }
@@ -51,6 +64,14 @@ void client_move(struct client *c, int x, int y) {
     uint32_t pos[2] = {x, y};
     xcb_configure_window(conn, c->win,
                          XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, pos);
+}
+
+void client_move_resize(struct client *c, int x, int y, int w, int h) {
+    uint32_t pos[4] = {x, y, w, h};
+    xcb_configure_window(conn, c->win,
+                         XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y |
+                             XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT,
+                         pos);
 }
 
 void client_raise(struct client *c) {
@@ -97,10 +118,19 @@ void on_button_release(xcb_generic_event_t *e) {
     xcb_ungrab_pointer(conn, XCB_CURRENT_TIME);
 }
 
+xcb_keycode_t get_keycode(xcb_keysym_t keysym) {
+    return *xcb_key_symbols_get_keycode(keysyms, keysym);
+}
+
 void on_key_pressed(xcb_generic_event_t *e) {
     xcb_key_press_event_t *ev = (xcb_key_press_event_t *)e;
-    struct client *c = find_client(ev->child);
-    client_kill(c);
+    for (int i = 0; i < LENGTH(keybinds); i++) {
+        struct keybind k = keybinds[i];
+        if (ev->detail == get_keycode(k.keysym) && ev->state == k.mod) {
+            k.key_ev_handler();
+            return;
+        }
+    }
 }
 
 void on_key_release(xcb_generic_event_t *e) {
@@ -126,6 +156,19 @@ void on_map_notify(xcb_generic_event_t *e) {
     struct client *c = find_client(ev->window);
     client_set_border(c, 10, 0xff0000);
 }
+
+void on_configure_notify(xcb_generic_event_t *e) {
+    xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t *)e;
+    struct client *c = find_client(ev->window);
+    struct geometry new_geom = {ev->x, ev->y, ev->width, ev->height};
+    c->prev_geom.x = c->geom.x;
+    c->prev_geom.y = c->geom.y;
+    c->prev_geom.w = c->geom.w;
+    c->prev_geom.h = c->geom.h;
+    c->geom = new_geom;
+    c->border_size = ev->border_width;
+}
+
 void quit(int status) {
     xcb_disconnect(conn);
     exit(status);
@@ -138,6 +181,21 @@ bool existing_wm(void) {
         conn, xcb_change_window_attributes_checked(conn, screen->root,
                                                    XCB_CW_EVENT_MASK, values));
     return error != NULL;
+}
+
+void close_focused() { client_kill(focused); }
+
+void change_fullscreen() {
+    wm.current_layout = FULL_SCREEN;
+    int full_w = screen->width_in_pixels - 2 * focused->border_size;
+    int full_h = screen->height_in_pixels - 2 * focused->border_size;
+    client_move_resize(focused, 0, 0, full_w, full_h);
+}
+
+void change_floating() {
+    wm.current_layout = FLOATING;
+    client_move_resize(focused, focused->prev_geom.x, focused->prev_geom.y,
+                       focused->prev_geom.w, focused->prev_geom.h);
 }
 
 void setup_bindings() {
@@ -153,13 +211,16 @@ void setup_bindings() {
                     XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC, screen->root,
                     XCB_NONE, 1, XCB_NONE);
 
-    xcb_key_symbols_t *keysyms = xcb_key_symbols_alloc(conn);
-    xcb_grab_key(conn, 0, screen->root, XCB_MOD_MASK_1,
-                 *xcb_key_symbols_get_keycode(keysyms, XK_w),
-                 XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
+    for (int x = 0; x < LENGTH(keybinds); x++) {
+        struct keybind k = keybinds[x];
+        xcb_grab_key(conn, 0, screen->root, k.mod, get_keycode(k.keysym),
+                     XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
+    }
 }
 
 void initialize() {
+    wm = (struct window_mgr){.current_layout = FLOATING};
+
     int screen_num;
     conn = xcb_connect(NULL, &screen_num);
     if (xcb_connection_has_error(conn)) {
@@ -173,6 +234,7 @@ void initialize() {
         quit(1);
     }
 
+    keysyms = xcb_key_symbols_alloc(conn);
     setup_bindings();
     xcb_flush(conn);
 }
@@ -183,8 +245,9 @@ int main(int argc, char *argv[]) {
 
     void (*handlers[30])(xcb_generic_event_t *) = {
         [XCB_MAP_REQUEST] = &on_map_request,
-        [XCB_BUTTON_PRESS] = &on_button_pressed,
         [XCB_MAP_NOTIFY] = &on_map_notify,
+        [XCB_CONFIGURE_NOTIFY] = &on_configure_notify,
+        [XCB_BUTTON_PRESS] = &on_button_pressed,
         [XCB_BUTTON_RELEASE] = &on_button_release,
         [XCB_KEY_PRESS] = &on_key_pressed,
         [XCB_KEY_RELEASE] = &on_key_release,
@@ -193,7 +256,7 @@ int main(int argc, char *argv[]) {
 
     while (1) {
         e = xcb_wait_for_event(conn);
-        ev_handler_t *handler = handlers[e->response_type & ~0x80];
+        xcb_ev_handler_t *handler = handlers[e->response_type & ~0x80];
         if (handler) {
             handler(e);
         } else {
