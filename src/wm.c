@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <signal.h>
 
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
@@ -26,6 +27,17 @@ xcb_key_symbols_t *keysyms;
 static struct keybind keybinds[] = {{XCB_MOD_MASK_1, XK_w, close_focused},
                                     {XCB_MOD_MASK_1, XK_f, change_fullscreen},
                                     {XCB_MOD_MASK_1, XK_s, change_floating}};
+
+void (*handlers[30])(xcb_generic_event_t *) = {
+    [XCB_MAP_REQUEST] = &on_map_request,
+    [XCB_MAP_NOTIFY] = &on_map_notify,
+    [XCB_CONFIGURE_NOTIFY] = &on_configure_notify,
+    [XCB_BUTTON_PRESS] = &on_button_pressed,
+    [XCB_BUTTON_RELEASE] = &on_button_release,
+    [XCB_KEY_PRESS] = &on_key_pressed,
+    [XCB_KEY_RELEASE] = &on_key_release,
+    [XCB_MOTION_NOTIFY] = &on_motion_notify,
+};
 
 struct client *find_client(xcb_window_t w) {
     struct client *head = clients;
@@ -169,11 +181,6 @@ void on_configure_notify(xcb_generic_event_t *e) {
     c->border_size = ev->border_width;
 }
 
-void quit(int status) {
-    xcb_disconnect(conn);
-    exit(status);
-}
-
 bool existing_wm(void) {
     xcb_generic_error_t *error;
     uint32_t values[] = {ROOT_EVENT_MASK};
@@ -218,6 +225,21 @@ void setup_bindings() {
     }
 }
 
+void quit(int status) {
+    struct client *head = clients;
+    while (head != NULL) {
+        struct client *temp = head->next;
+        free(head);
+        head = temp;
+    }
+    xcb_ungrab_key(conn, XCB_GRAB_ANY, screen->root, XCB_BUTTON_MASK_ANY);
+    xcb_ungrab_button(conn, XCB_BUTTON_INDEX_ANY, screen->root,
+                      XCB_MOD_MASK_ANY);
+    xcb_flush(conn);
+    xcb_disconnect(conn);
+    exit(status);
+}
+
 void initialize() {
     wm = (struct window_mgr){.current_layout = FLOATING};
 
@@ -239,20 +261,11 @@ void initialize() {
     xcb_flush(conn);
 }
 
-int main(int argc, char *argv[]) {
-    initialize();
-    xcb_generic_event_t *e;
+void sigint_quit() { quit(130); }
 
-    void (*handlers[30])(xcb_generic_event_t *) = {
-        [XCB_MAP_REQUEST] = &on_map_request,
-        [XCB_MAP_NOTIFY] = &on_map_notify,
-        [XCB_CONFIGURE_NOTIFY] = &on_configure_notify,
-        [XCB_BUTTON_PRESS] = &on_button_pressed,
-        [XCB_BUTTON_RELEASE] = &on_button_release,
-        [XCB_KEY_PRESS] = &on_key_pressed,
-        [XCB_KEY_RELEASE] = &on_key_release,
-        [XCB_MOTION_NOTIFY] = &on_motion_notify,
-    };
+void run() {
+    signal(SIGINT, sigint_quit);
+    xcb_generic_event_t *e;
 
     while (1) {
         e = xcb_wait_for_event(conn);
@@ -266,8 +279,13 @@ int main(int argc, char *argv[]) {
         if (xcb_connection_has_error(conn)) {
             FLOG("An unexpected error has occured");
             quit(1);
-            break;
         }
         xcb_flush(conn);
     }
+}
+
+int main(int argc, char *argv[]) {
+    initialize();
+    run();
+    quit(0);
 }

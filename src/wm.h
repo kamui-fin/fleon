@@ -62,3 +62,5 @@ void setup_bindings();
 void initialize();
 bool existing_wm(void);
 void quit(int status);
+void sigint_quit();
+void run();
