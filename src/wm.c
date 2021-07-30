@@ -4,11 +4,47 @@
 
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
-#include "featherbox.h"
+#include "utils.h"
+#include "wm.h"
 
+/* Global state */
 xcb_connection_t *conn;
 const xcb_setup_t *setup;
 xcb_screen_t *screen;
+struct client *clients;
+
+
+void client_add(xcb_window_t w) {
+    struct client *new_client = malloc(sizeof(struct client));
+    new_client->win = w;
+    new_client->next = clients;
+    clients = new_client;
+}
+
+void client_kill(struct client *c) { xcb_kill_client(conn, c->win); }
+
+void client_resize(struct client *c, int w, int h) {
+    uint32_t pos[2] = {w, h};
+    xcb_configure_window(
+        conn, c->win, XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT, pos);
+}
+
+void client_move(struct client *c, int x, int y) {
+    uint32_t pos[2] = {x, y};
+    xcb_configure_window(conn, c->win,
+                         XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, pos);
+}
+
+void client_raise(xcb_window_t win) {
+    uint32_t arg[1] = {XCB_STACK_MODE_ABOVE};
+    xcb_configure_window(conn, win, XCB_CONFIG_WINDOW_STACK_MODE, arg);
+}
+
+void on_map_request(xcb_generic_event_t *e) {
+    xcb_map_request_event_t *ev = (xcb_map_request_event_t *)e;
+    client_add(ev->window);
+    xcb_map_window(conn, ev->window);
+}
 
 void quit(int status) {
     xcb_disconnect(conn);
@@ -49,37 +85,10 @@ void initialize() {
     xcb_flush(conn);
 }
 
-void close_window(struct client *c) { xcb_destroy_window(conn, c->win); }
-
-static inline void resize_win(xcb_connection_t *con, xcb_window_t win, int w,
-                              int h) {
-    uint32_t pos[2] = {w, h};
-    xcb_configure_window(
-        con, win, XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT, pos);
-}
-
-static inline void move_win(xcb_connection_t *con, xcb_window_t win, int x,
-                            int y) {
-    uint32_t pos[2] = {x, y};
-    xcb_configure_window(con, win, XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y,
-                         pos);
-}
-
-static inline void raise_win(xcb_connection_t *con, xcb_window_t win) {
-    uint32_t arg[1] = {XCB_STACK_MODE_ABOVE};
-    xcb_configure_window(con, win, XCB_CONFIG_WINDOW_STACK_MODE, arg);
-}
-
-void on_map_request(xcb_generic_event_t *e) {
-    xcb_map_request_event_t *ev = (xcb_map_request_event_t *)e;
-    xcb_map_window(conn, ev->window);
-}
-
 int main(int argc, char *argv[]) {
     initialize();
     xcb_generic_event_t *e;
 
-    typedef void(ev_handler_t)(xcb_generic_event_t *);
     void (*handlers[30])(xcb_generic_event_t *) = {
         [XCB_MAP_REQUEST] = &on_map_request,
     };
