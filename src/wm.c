@@ -25,9 +25,12 @@ xcb_query_pointer_reply_t *pointer;
 struct client *mouse_on;
 
 xcb_key_symbols_t *keysyms;
-static struct keybind keybinds[] = {{MOD_KEY, XK_w, close_focused},
-                                    {MOD_KEY, XK_f, change_fullscreen},
-                                    {MOD_KEY, XK_s, change_floating}};
+static struct keybind keybinds[] = {
+    {MOD_KEY, XK_w, close_focused},
+    {MOD_KEY, XK_f, change_fullscreen},
+    {MOD_KEY, XK_s, change_floating},
+    {MOD_KEY, XK_1, change_workspace}
+};
 
 void (*handlers[30])(xcb_generic_event_t *) = {
     [XCB_MAP_REQUEST] = &on_map_request,
@@ -129,13 +132,14 @@ void on_button_pressed(xcb_generic_event_t *e) {
 }
 
 void switch_workspace(int workspace_idx) {
+    if(workspace_idx == current_workspace) return;
     struct client *current = clients;
 
     while (current != NULL) {
-        if (current->workspace == current_workspace) {
-            xcb_unmap_window(conn, current->win);
-        } else if (current->workspace == workspace_idx) {
+        if (current->workspace == workspace_idx) {
             xcb_map_window(conn, current->win);
+        } else if (current->workspace == current_workspace) {
+            xcb_unmap_window(conn, current->win);
         }
         current = current->next;
     }
