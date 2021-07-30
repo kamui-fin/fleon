@@ -25,11 +25,9 @@ xcb_query_pointer_reply_t *pointer;
 struct client *mouse_on;
 
 xcb_key_symbols_t *keysyms;
-static struct keybind keybinds[] = {
-    {MOD_KEY, XK_w, close_focused},
-    {MOD_KEY, XK_f, change_fullscreen},
-    {MOD_KEY, XK_s, change_floating}
-};
+static struct keybind keybinds[] = {{MOD_KEY, XK_w, close_focused},
+                                    {MOD_KEY, XK_f, change_fullscreen},
+                                    {MOD_KEY, XK_s, change_floating}};
 
 void (*handlers[30])(xcb_generic_event_t *) = {
     [XCB_MAP_REQUEST] = &on_map_request,
@@ -131,17 +129,18 @@ void on_button_pressed(xcb_generic_event_t *e) {
 }
 
 void switch_workspace(int workspace_idx) {
-    struct client* current = clients;
-    current_workspace = workspace_idx;
+    struct client *current = clients;
 
     while (current != NULL) {
-        if (current->workspace == workspace_idx) {
-            xcb_map_window(conn, current->win);
-        } else {
+        if (current->workspace == current_workspace) {
             xcb_unmap_window(conn, current->win);
+        } else if (current->workspace == workspace_idx) {
+            xcb_map_window(conn, current->win);
         }
         current = current->next;
     }
+
+    current_workspace = workspace_idx;
 }
 
 void on_button_release(xcb_generic_event_t *e) {
@@ -155,7 +154,7 @@ xcb_keycode_t get_keycode(xcb_keysym_t keysym) {
 void on_key_pressed(xcb_generic_event_t *e) {
     xcb_key_press_event_t *ev = (xcb_key_press_event_t *)e;
 
-    if(ev->detail >= 10 && ev->detail <= 20) {
+    if (ev->detail >= 10 && ev->detail <= 20) {
         switch_workspace(ev->detail - 10);
     }
 
@@ -166,7 +165,6 @@ void on_key_pressed(xcb_generic_event_t *e) {
             return;
         }
     }
-
 }
 
 void on_key_release(xcb_generic_event_t *e) {
@@ -247,8 +245,9 @@ void setup_bindings() {
                      XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
     }
 
-    for(int i = 0; i < 10; i++) {
-        xcb_grab_key(conn, 0, screen->root, MOD_KEY, i + 10, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
+    for (int i = 0; i < 10; i++) {
+        xcb_grab_key(conn, 0, screen->root, MOD_KEY, i + 10,
+                     XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
     }
 }
 
