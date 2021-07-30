@@ -58,6 +58,11 @@ void client_raise(struct client *c) {
     xcb_configure_window(conn, c->win, XCB_CONFIG_WINDOW_STACK_MODE, arg);
 }
 
+void client_set_border(struct client *c, int width, int color) {
+    xcb_configure_window(conn, c->win, XCB_CONFIG_WINDOW_BORDER_WIDTH, &width);
+    xcb_change_window_attributes(conn, c->win, XCB_CW_BORDER_PIXEL, &color);
+}
+
 void on_map_request(xcb_generic_event_t *e) {
     xcb_map_request_event_t *ev = (xcb_map_request_event_t *)e;
     client_add(ev->window);
@@ -116,6 +121,11 @@ void on_motion_notify(xcb_generic_event_t *e) {
     }
 }
 
+void on_map_notify(xcb_generic_event_t *e) {
+    xcb_map_notify_event_t *ev = (xcb_map_notify_event_t *)e;
+    struct client *c = find_client(ev->window);
+    client_set_border(c, 10, 0xff0000);
+}
 void quit(int status) {
     xcb_disconnect(conn);
     exit(status);
@@ -174,6 +184,7 @@ int main(int argc, char *argv[]) {
     void (*handlers[30])(xcb_generic_event_t *) = {
         [XCB_MAP_REQUEST] = &on_map_request,
         [XCB_BUTTON_PRESS] = &on_button_pressed,
+        [XCB_MAP_NOTIFY] = &on_map_notify,
         [XCB_BUTTON_RELEASE] = &on_button_release,
         [XCB_KEY_PRESS] = &on_key_pressed,
         [XCB_KEY_RELEASE] = &on_key_release,
