@@ -24,6 +24,8 @@ void client_raise(struct client *c);
 void on_map_request(xcb_generic_event_t *e);
 void on_button_pressed(xcb_generic_event_t *e);
 void on_button_release(xcb_generic_event_t *e);
+void on_key_pressed(xcb_generic_event_t *e);
+void on_key_release(xcb_generic_event_t *e);
 void on_motion_notify(xcb_generic_event_t *e);
 
 /* Setup and teardown */

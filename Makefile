@@ -3,7 +3,7 @@ OUT_DIR = build
 SRC_DIR = src
 TARGET = featherbox
 CFLAGS = -pedantic -Wall -Wextra -march=native -DDEBUG -g
-LDFLAGS = -lxcb
+LDFLAGS = -lxcb -lxcb-keysyms
 INCLUDES = -I$(SRC_DIR)
 RM = rm -rf
 

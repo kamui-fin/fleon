@@ -4,6 +4,8 @@
 
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
+#include <X11/keysym.h>
+#include <xcb/xcb_keysyms.h>
 #include "utils.h"
 #include "wm.h"
 
@@ -65,27 +67,39 @@ void on_map_request(xcb_generic_event_t *e) {
 void on_button_pressed(xcb_generic_event_t *e) {
     xcb_button_press_event_t *ev = (xcb_button_press_event_t *)e;
     mouse_on = find_client(ev->child);
-    geometry = xcb_get_geometry_reply(
-        conn, xcb_get_geometry(conn, mouse_on->win), NULL);
-    pointer =
-        xcb_query_pointer_reply(conn, xcb_query_pointer(conn, screen->root), 0);
-    if (ev->state == XCB_MOD_MASK_1) {
-        xcb_grab_pointer(conn, 0, screen->root,
-                         XCB_EVENT_MASK_BUTTON_RELEASE |
-                             XCB_EVENT_MASK_BUTTON_MOTION,
-                         XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC, screen->root,
-                         XCB_NONE, XCB_CURRENT_TIME);
-    } else {
-        focused = mouse_on;
-        xcb_set_input_focus(conn, XCB_INPUT_FOCUS_POINTER_ROOT, focused->win,
-                            XCB_CURRENT_TIME);
-        client_raise(focused);
-        xcb_ungrab_pointer(conn, XCB_CURRENT_TIME);
+    if (mouse_on) {
+        geometry = xcb_get_geometry_reply(
+            conn, xcb_get_geometry(conn, mouse_on->win), NULL);
+        pointer = xcb_query_pointer_reply(
+            conn, xcb_query_pointer(conn, screen->root), 0);
+        if (ev->state == XCB_MOD_MASK_1) {
+            xcb_grab_pointer(conn, 0, screen->root,
+                             XCB_EVENT_MASK_BUTTON_RELEASE |
+                                 XCB_EVENT_MASK_BUTTON_MOTION,
+                             XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC,
+                             screen->root, XCB_NONE, XCB_CURRENT_TIME);
+        } else {
+            focused = mouse_on;
+            xcb_set_input_focus(conn, XCB_INPUT_FOCUS_POINTER_ROOT,
+                                focused->win, XCB_CURRENT_TIME);
+            client_raise(focused);
+            xcb_ungrab_pointer(conn, XCB_CURRENT_TIME);
+        }
     }
 }
 
 void on_button_release(xcb_generic_event_t *e) {
     xcb_ungrab_pointer(conn, XCB_CURRENT_TIME);
+}
+
+void on_key_pressed(xcb_generic_event_t *e) {
+    xcb_key_press_event_t *ev = (xcb_key_press_event_t *)e;
+    struct client *c = find_client(ev->child);
+    client_kill(c);
+}
+
+void on_key_release(xcb_generic_event_t *e) {
+    xcb_key_release_event_t *ev = (xcb_key_release_event_t *)e;
 }
 
 void on_motion_notify(xcb_generic_event_t *e) {
@@ -110,11 +124,29 @@ void quit(int status) {
 bool existing_wm(void) {
     xcb_generic_error_t *error;
     uint32_t values[] = {ROOT_EVENT_MASK};
-    // error and quit if found
     error = xcb_request_check(
         conn, xcb_change_window_attributes_checked(conn, screen->root,
                                                    XCB_CW_EVENT_MASK, values));
     return error != NULL;
+}
+
+void setup_bindings() {
+    xcb_grab_button(conn, 0, screen->root,
+                    XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE,
+                    XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC, screen->root,
+                    XCB_NONE, XCB_BUTTON_INDEX_1, XCB_MOD_MASK_1);
+    xcb_grab_button(conn, 0, screen->root,
+                    XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE,
+                    XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC, screen->root,
+                    XCB_NONE, XCB_BUTTON_INDEX_3, XCB_MOD_MASK_1);
+    xcb_grab_button(conn, 0, screen->root, XCB_EVENT_MASK_BUTTON_PRESS,
+                    XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC, screen->root,
+                    XCB_NONE, 1, XCB_NONE);
+
+    xcb_key_symbols_t *keysyms = xcb_key_symbols_alloc(conn);
+    xcb_grab_key(conn, 0, screen->root, XCB_MOD_MASK_1,
+                 *xcb_key_symbols_get_keycode(keysyms, XK_w),
+                 XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
 }
 
 void initialize() {
@@ -130,17 +162,8 @@ void initialize() {
         FLOG("A window manager is already running");
         quit(1);
     }
-    xcb_grab_button(conn, 0, screen->root,
-                    XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE,
-                    XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC, screen->root,
-                    XCB_NONE, XCB_BUTTON_INDEX_1, XCB_MOD_MASK_1);
-    xcb_grab_button(conn, 0, screen->root,
-                    XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE,
-                    XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC, screen->root,
-                    XCB_NONE, XCB_BUTTON_INDEX_3, XCB_MOD_MASK_1);
-    xcb_grab_button(conn, 0, screen->root, XCB_EVENT_MASK_BUTTON_PRESS,
-                    XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC, screen->root,
-                    XCB_NONE, 1, XCB_NONE);
+
+    setup_bindings();
     xcb_flush(conn);
 }
 
@@ -152,6 +175,8 @@ int main(int argc, char *argv[]) {
         [XCB_MAP_REQUEST] = &on_map_request,
         [XCB_BUTTON_PRESS] = &on_button_pressed,
         [XCB_BUTTON_RELEASE] = &on_button_release,
+        [XCB_KEY_PRESS] = &on_key_pressed,
+        [XCB_KEY_RELEASE] = &on_key_release,
         [XCB_MOTION_NOTIFY] = &on_motion_notify,
     };
 
