@@ -95,9 +95,9 @@ void client_raise(struct client *c) {
     xcb_configure_window(conn, c->win, XCB_CONFIG_WINDOW_STACK_MODE, arg);
 }
 
-void client_set_border(struct client *c, int width, int color) {
-    xcb_configure_window(conn, c->win, XCB_CONFIG_WINDOW_BORDER_WIDTH, &width);
-    xcb_change_window_attributes(conn, c->win, XCB_CW_BORDER_PIXEL, &color);
+void set_border(xcb_window_t win, int width, int color) {
+    xcb_configure_window(conn, win, XCB_CONFIG_WINDOW_BORDER_WIDTH, &width);
+    xcb_change_window_attributes(conn, win, XCB_CW_BORDER_PIXEL, &color);
 }
 
 void on_map_request(xcb_generic_event_t *e) {
@@ -189,8 +189,7 @@ void on_motion_notify(xcb_generic_event_t *e) {
 
 void on_map_notify(xcb_generic_event_t *e) {
     xcb_map_notify_event_t *ev = (xcb_map_notify_event_t *)e;
-    struct client *c = find_client(ev->window);
-    client_set_border(c, 10, 0xff0000);
+    set_border(ev->window, 10, 0xff0000);
 }
 
 void on_configure_notify(xcb_generic_event_t *e) {

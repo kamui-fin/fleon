@@ -42,7 +42,6 @@ void client_resize(struct client *c, int w, int h);
 void client_move(struct client *c, int x, int y);
 void client_move_resize(struct client *c, int x, int y, int w, int h);
 void client_raise(struct client *c);
-void client_set_border(struct client *c, int width, int color);
 
 /* Event handling */
 void on_map_request(xcb_generic_event_t *e);
@@ -58,6 +57,7 @@ void close_focused();
 void change_fullscreen();
 void change_floating();
 void change_workspace(int workspace_idx);
+void set_border(xcb_window_t win, int width, int color);
 xcb_keycode_t get_keycode(xcb_keysym_t keysym);
 
 /* Setup and teardown */
