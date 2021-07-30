@@ -17,6 +17,7 @@ const xcb_setup_t *setup;
 xcb_screen_t *screen;
 struct client *clients;
 struct client *focused;
+int current_workspace = 0;
 
 /* For resizing and moving with pointer */
 xcb_get_geometry_reply_t *geometry;
@@ -24,9 +25,11 @@ xcb_query_pointer_reply_t *pointer;
 struct client *mouse_on;
 
 xcb_key_symbols_t *keysyms;
-static struct keybind keybinds[] = {{XCB_MOD_MASK_1, XK_w, close_focused},
-                                    {XCB_MOD_MASK_1, XK_f, change_fullscreen},
-                                    {XCB_MOD_MASK_1, XK_s, change_floating}};
+static struct keybind keybinds[] = {
+    {MOD_KEY, XK_w, close_focused},
+    {MOD_KEY, XK_f, change_fullscreen},
+    {MOD_KEY, XK_s, change_floating}
+};
 
 void (*handlers[30])(xcb_generic_event_t *) = {
     [XCB_MAP_REQUEST] = &on_map_request,
@@ -61,6 +64,7 @@ void client_add(xcb_window_t w) {
     new_client->geom.h = geom->height;
     new_client->border_size = geom->border_width;
     new_client->next = clients;
+    new_client->workspace = current_workspace;
     clients = new_client;
 }
 
@@ -126,6 +130,20 @@ void on_button_pressed(xcb_generic_event_t *e) {
     }
 }
 
+void switch_workspace(int workspace_idx) {
+    struct client* current = clients;
+    current_workspace = workspace_idx;
+
+    while (current != NULL) {
+        if (current->workspace == workspace_idx) {
+            xcb_map_window(conn, current->win);
+        } else {
+            xcb_unmap_window(conn, current->win);
+        }
+        current = current->next;
+    }
+}
+
 void on_button_release(xcb_generic_event_t *e) {
     xcb_ungrab_pointer(conn, XCB_CURRENT_TIME);
 }
@@ -136,6 +154,11 @@ xcb_keycode_t get_keycode(xcb_keysym_t keysym) {
 
 void on_key_pressed(xcb_generic_event_t *e) {
     xcb_key_press_event_t *ev = (xcb_key_press_event_t *)e;
+
+    if(ev->detail >= 10 && ev->detail <= 20) {
+        switch_workspace(ev->detail - 10);
+    }
+
     for (int i = 0; i < LENGTH(keybinds); i++) {
         struct keybind k = keybinds[i];
         if (ev->detail == get_keycode(k.keysym) && ev->state == k.mod) {
@@ -143,6 +166,7 @@ void on_key_pressed(xcb_generic_event_t *e) {
             return;
         }
     }
+
 }
 
 void on_key_release(xcb_generic_event_t *e) {
@@ -222,6 +246,10 @@ void setup_bindings() {
         struct keybind k = keybinds[x];
         xcb_grab_key(conn, 0, screen->root, k.mod, get_keycode(k.keysym),
                      XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
+    }
+
+    for(int i = 0; i < 10; i++) {
+        xcb_grab_key(conn, 0, screen->root, MOD_KEY, i + 10, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
     }
 }
 

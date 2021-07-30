@@ -1,4 +1,5 @@
 #include <xcb/xproto.h>
+#define MOD_KEY XCB_MOD_MASK_1
 
 #define ROOT_EVENT_MASK                                                        \
     (XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT |                                    \
@@ -28,6 +29,7 @@ struct client {
     struct geometry geom;
     struct geometry prev_geom;
     int border_size;
+    int workspace;
 };
 
 typedef void(xcb_ev_handler_t)(xcb_generic_event_t *);
@@ -55,6 +57,7 @@ void on_configure_notify(xcb_generic_event_t *e);
 void close_focused();
 void change_fullscreen();
 void change_floating();
+void change_workspace(int workspace_idx);
 xcb_keycode_t get_keycode(xcb_keysym_t keysym);
 
 /* Setup and teardown */
