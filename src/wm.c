@@ -25,11 +25,9 @@ xcb_query_pointer_reply_t *pointer;
 struct client *mouse_on;
 
 xcb_key_symbols_t *keysyms;
-static struct keybind keybinds[] = {
-    {MOD_KEY, XK_w, close_focused},
-    {MOD_KEY, XK_f, change_fullscreen},
-    {MOD_KEY, XK_s, change_floating},
-    {MOD_KEY, XK_1, change_workspace}
+static struct keybind keybinds[] = {{MOD_KEY, XK_w, close_focused},
+                                    {MOD_KEY, XK_f, change_fullscreen},
+                                    {MOD_KEY, XK_s, change_floating},
 };
 
 void (*handlers[30])(xcb_generic_event_t *) = {
@@ -132,7 +130,8 @@ void on_button_pressed(xcb_generic_event_t *e) {
 }
 
 void switch_workspace(int workspace_idx) {
-    if(workspace_idx == current_workspace) return;
+    if (workspace_idx == current_workspace)
+        return;
     struct client *current = clients;
 
     while (current != NULL) {
