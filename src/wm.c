@@ -12,19 +12,19 @@
 
 /* Global state */
 struct window_mgr wm;
-xcb_connection_t *conn;
-const xcb_setup_t *setup;
-xcb_screen_t *screen;
-struct client *clients;
-struct client *focused;
+xcb_connection_t* conn;
+const xcb_setup_t* setup;
+xcb_screen_t* screen;
+struct client* clients;
+struct client* focused;
 int current_workspace = 0;
 
 /* For resizing and moving with pointer */
-xcb_get_geometry_reply_t *geometry;
-xcb_query_pointer_reply_t *pointer;
-struct client *mouse_on;
+xcb_get_geometry_reply_t* geometry;
+xcb_query_pointer_reply_t* pointer;
+struct client* mouse_on;
 
-xcb_key_symbols_t *keysyms;
+xcb_key_symbols_t* keysyms;
 static struct keybind keybinds[] = {
     {MOD_KEY, XK_w, close_focused},
     {MOD_KEY, XK_f, change_fullscreen},
@@ -38,7 +38,7 @@ static struct keybind workspace_keybinds[] = {
     [9] = {MOD_KEY, XK_0},
 };
 
-void (*handlers[30])(xcb_generic_event_t *) = {
+void (*handlers[30])(xcb_generic_event_t*) = {
     [XCB_MAP_REQUEST] = &on_map_request,
     [XCB_MAP_NOTIFY] = &on_map_notify,
     [XCB_CONFIGURE_NOTIFY] = &on_configure_notify,
@@ -49,8 +49,8 @@ void (*handlers[30])(xcb_generic_event_t *) = {
     [XCB_MOTION_NOTIFY] = &on_motion_notify,
 };
 
-struct client *find_client(xcb_window_t w) {
-    struct client *head = clients;
+struct client* find_client(xcb_window_t w) {
+    struct client* head = clients;
     while (head != NULL) {
         if (head->win == w) {
             return head;
@@ -61,8 +61,8 @@ struct client *find_client(xcb_window_t w) {
 }
 
 void client_add(xcb_window_t w) {
-    struct client *new_client = malloc(sizeof(struct client));
-    xcb_get_geometry_reply_t *geom =
+    struct client* new_client = malloc(sizeof(struct client));
+    xcb_get_geometry_reply_t* geom =
         xcb_get_geometry_reply(conn, xcb_get_geometry(conn, w), NULL);
     new_client->win = w;
     new_client->geom.x = geom->x;
@@ -75,21 +75,21 @@ void client_add(xcb_window_t w) {
     clients = new_client;
 }
 
-void client_kill(struct client *c) { xcb_kill_client(conn, c->win); }
+void client_kill(struct client* c) { xcb_kill_client(conn, c->win); }
 
-void client_resize(struct client *c, int w, int h) {
+void client_resize(struct client* c, int w, int h) {
     uint32_t pos[2] = {w, h};
     xcb_configure_window(
         conn, c->win, XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT, pos);
 }
 
-void client_move(struct client *c, int x, int y) {
+void client_move(struct client* c, int x, int y) {
     uint32_t pos[2] = {x, y};
     xcb_configure_window(conn, c->win,
                          XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, pos);
 }
 
-void client_move_resize(struct client *c, int x, int y, int w, int h) {
+void client_move_resize(struct client* c, int x, int y, int w, int h) {
     uint32_t pos[4] = {x, y, w, h};
     xcb_configure_window(conn, c->win,
                          XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y |
@@ -97,7 +97,7 @@ void client_move_resize(struct client *c, int x, int y, int w, int h) {
                          pos);
 }
 
-void client_raise(struct client *c) {
+void client_raise(struct client* c) {
     uint32_t arg[1] = {XCB_STACK_MODE_ABOVE};
     xcb_configure_window(conn, c->win, XCB_CONFIG_WINDOW_STACK_MODE, arg);
 }
@@ -107,14 +107,14 @@ void set_border(xcb_window_t win, int width, int color) {
     xcb_change_window_attributes(conn, win, XCB_CW_BORDER_PIXEL, &color);
 }
 
-void on_map_request(xcb_generic_event_t *e) {
-    xcb_map_request_event_t *ev = (xcb_map_request_event_t *)e;
+void on_map_request(xcb_generic_event_t* e) {
+    xcb_map_request_event_t* ev = (xcb_map_request_event_t*)e;
     client_add(ev->window);
     xcb_map_window(conn, ev->window);
 }
 
-void on_button_pressed(xcb_generic_event_t *e) {
-    xcb_button_press_event_t *ev = (xcb_button_press_event_t *)e;
+void on_button_pressed(xcb_generic_event_t* e) {
+    xcb_button_press_event_t* ev = (xcb_button_press_event_t*)e;
     mouse_on = find_client(ev->child);
     if (mouse_on) {
         geometry = xcb_get_geometry_reply(
@@ -140,7 +140,7 @@ void on_button_pressed(xcb_generic_event_t *e) {
 void switch_workspace(int workspace_idx) {
     if (workspace_idx == current_workspace)
         return;
-    struct client *current = clients;
+    struct client* current = clients;
 
     while (current != NULL) {
         if (current->workspace == workspace_idx) {
@@ -154,12 +154,12 @@ void switch_workspace(int workspace_idx) {
     current_workspace = workspace_idx;
 }
 
-void move_window_to_workspace(struct client *c, int workspace_idx) {
+void move_window_to_workspace(struct client* c, int workspace_idx) {
     c->workspace = workspace_idx;
     xcb_unmap_window(conn, c->win);
 }
 
-void on_button_release(xcb_generic_event_t *e) {
+void on_button_release(xcb_generic_event_t* e) {
     xcb_ungrab_pointer(conn, XCB_CURRENT_TIME);
 }
 
@@ -167,8 +167,8 @@ xcb_keycode_t get_keycode(xcb_keysym_t keysym) {
     return *xcb_key_symbols_get_keycode(keysyms, keysym);
 }
 
-void on_key_pressed(xcb_generic_event_t *e) {
-    xcb_key_press_event_t *ev = (xcb_key_press_event_t *)e;
+void on_key_pressed(xcb_generic_event_t* e) {
+    xcb_key_press_event_t* ev = (xcb_key_press_event_t*)e;
 
     // if (ev->detail >= 10 && ev->detail <= 20) {
     //    switch_workspace(ev->detail - 10);
@@ -180,7 +180,7 @@ void on_key_pressed(xcb_generic_event_t *e) {
             if (ev->state == k.mod) {
                 switch_workspace(i);
             } else if (ev->state == (k.mod | XCB_MOD_MASK_SHIFT)) {
-                struct client *c;
+                struct client* c;
 
                 if ((c = find_client(ev->child)) != NULL) {
                     move_window_to_workspace(c, i);
@@ -201,13 +201,13 @@ void on_key_pressed(xcb_generic_event_t *e) {
     }
 }
 
-void on_key_release(xcb_generic_event_t *e) {
-    xcb_key_release_event_t *ev = (xcb_key_release_event_t *)e;
+void on_key_release(xcb_generic_event_t* e) {
+    xcb_key_release_event_t* ev = (xcb_key_release_event_t*)e;
 }
 
-void on_motion_notify(xcb_generic_event_t *e) {
-    xcb_motion_notify_event_t *ev = (xcb_motion_notify_event_t *)e;
-    struct client *c = find_client(ev->child);
+void on_motion_notify(xcb_generic_event_t* e) {
+    xcb_motion_notify_event_t* ev = (xcb_motion_notify_event_t*)e;
+    struct client* c = find_client(ev->child);
     if (c) {
         int xdiff = ev->root_x - pointer->root_x;
         int ydiff = ev->root_y - pointer->root_y;
@@ -219,14 +219,14 @@ void on_motion_notify(xcb_generic_event_t *e) {
     }
 }
 
-void on_map_notify(xcb_generic_event_t *e) {
-    xcb_map_notify_event_t *ev = (xcb_map_notify_event_t *)e;
+void on_map_notify(xcb_generic_event_t* e) {
+    xcb_map_notify_event_t* ev = (xcb_map_notify_event_t*)e;
     set_border(ev->window, 10, 0xff0000);
 }
 
-void on_configure_notify(xcb_generic_event_t *e) {
-    xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t *)e;
-    struct client *c = find_client(ev->window);
+void on_configure_notify(xcb_generic_event_t* e) {
+    xcb_configure_notify_event_t* ev = (xcb_configure_notify_event_t*)e;
+    struct client* c = find_client(ev->window);
     struct geometry new_geom = {ev->x, ev->y, ev->width, ev->height};
     c->prev_geom.x = c->geom.x;
     c->prev_geom.y = c->geom.y;
@@ -237,7 +237,7 @@ void on_configure_notify(xcb_generic_event_t *e) {
 }
 
 bool existing_wm(void) {
-    xcb_generic_error_t *error;
+    xcb_generic_error_t* error;
     uint32_t values[] = {ROOT_EVENT_MASK};
     error = xcb_request_check(
         conn, xcb_change_window_attributes_checked(conn, screen->root,
@@ -290,9 +290,9 @@ void setup_bindings() {
 }
 
 void quit(int status) {
-    struct client *head = clients;
+    struct client* head = clients;
     while (head != NULL) {
-        struct client *temp = head->next;
+        struct client* temp = head->next;
         free(head);
         head = temp;
     }
@@ -329,11 +329,11 @@ void sigint_quit() { quit(130); }
 
 void run() {
     signal(SIGINT, sigint_quit);
-    xcb_generic_event_t *e;
+    xcb_generic_event_t* e;
 
     while (1) {
         e = xcb_wait_for_event(conn);
-        xcb_ev_handler_t *handler = handlers[e->response_type & ~0x80];
+        xcb_ev_handler_t* handler = handlers[e->response_type & ~0x80];
         if (handler) {
             handler(e);
         } else {
@@ -348,7 +348,7 @@ void run() {
     }
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
     initialize();
     run();
     quit(0);

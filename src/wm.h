@@ -24,7 +24,7 @@ struct geometry {
 };
 
 struct client {
-    struct client *next;
+    struct client* next;
     xcb_window_t win;
     struct geometry geom;
     struct geometry prev_geom;
@@ -32,26 +32,26 @@ struct client {
     int workspace;
 };
 
-typedef void(xcb_ev_handler_t)(xcb_generic_event_t *);
+typedef void(xcb_ev_handler_t)(xcb_generic_event_t*);
 
 /* Client managment */
-struct client *find_client(xcb_window_t w);
+struct client* find_client(xcb_window_t w);
 void client_add(xcb_window_t w);
-void client_kill(struct client *c);
-void client_resize(struct client *c, int w, int h);
-void client_move(struct client *c, int x, int y);
-void client_move_resize(struct client *c, int x, int y, int w, int h);
-void client_raise(struct client *c);
+void client_kill(struct client* c);
+void client_resize(struct client* c, int w, int h);
+void client_move(struct client* c, int x, int y);
+void client_move_resize(struct client* c, int x, int y, int w, int h);
+void client_raise(struct client* c);
 
 /* Event handling */
-void on_map_request(xcb_generic_event_t *e);
-void on_button_pressed(xcb_generic_event_t *e);
-void on_button_release(xcb_generic_event_t *e);
-void on_key_pressed(xcb_generic_event_t *e);
-void on_key_release(xcb_generic_event_t *e);
-void on_motion_notify(xcb_generic_event_t *e);
-void on_map_notify(xcb_generic_event_t *e);
-void on_configure_notify(xcb_generic_event_t *e);
+void on_map_request(xcb_generic_event_t* e);
+void on_button_pressed(xcb_generic_event_t* e);
+void on_button_release(xcb_generic_event_t* e);
+void on_key_pressed(xcb_generic_event_t* e);
+void on_key_release(xcb_generic_event_t* e);
+void on_motion_notify(xcb_generic_event_t* e);
+void on_map_notify(xcb_generic_event_t* e);
+void on_configure_notify(xcb_generic_event_t* e);
 
 void close_focused();
 void change_fullscreen();
