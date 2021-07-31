@@ -154,6 +154,11 @@ void switch_workspace(int workspace_idx) {
     current_workspace = workspace_idx;
 }
 
+void move_window_to_workspace(struct client *c, int workspace_idx) {
+    c->workspace = workspace_idx;
+    xcb_unmap_window(conn, c->win);
+}
+
 void on_button_release(xcb_generic_event_t *e) {
     xcb_ungrab_pointer(conn, XCB_CURRENT_TIME);
 }
@@ -171,8 +176,19 @@ void on_key_pressed(xcb_generic_event_t *e) {
 
     for (int i = 0; i < LENGTH(workspace_keybinds); i++) {
         struct keybind k = workspace_keybinds[i];
-        if (ev->detail == get_keycode(k.keysym) && ev->state == k.mod) {
-            switch_workspace(i);
+        if (ev->detail == get_keycode(k.keysym)) {
+            if (ev->state == k.mod) {
+                switch_workspace(i);
+            } else if (ev->state == (k.mod | XCB_MOD_MASK_SHIFT)) {
+                struct client *c;
+
+                if ((c = find_client(ev->child)) != NULL) {
+                    move_window_to_workspace(c, i);
+                    return;
+                }
+
+                TLOG("Input focus was null, ignoring");
+            }
         }
     }
 
@@ -267,6 +283,9 @@ void setup_bindings() {
         struct keybind k = workspace_keybinds[i];
         xcb_grab_key(conn, 0, screen->root, k.mod, get_keycode(k.keysym),
                      XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
+        xcb_grab_key(conn, 0, screen->root, k.mod | XCB_MOD_MASK_SHIFT,
+                     get_keycode(k.keysym), XCB_GRAB_MODE_ASYNC,
+                     XCB_GRAB_MODE_ASYNC);
     }
 }
 
