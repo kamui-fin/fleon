@@ -25,9 +25,17 @@ xcb_query_pointer_reply_t *pointer;
 struct client *mouse_on;
 
 xcb_key_symbols_t *keysyms;
-static struct keybind keybinds[] = {{MOD_KEY, XK_w, close_focused},
-                                    {MOD_KEY, XK_f, change_fullscreen},
-                                    {MOD_KEY, XK_s, change_floating},
+static struct keybind keybinds[] = {
+    {MOD_KEY, XK_w, close_focused},
+    {MOD_KEY, XK_f, change_fullscreen},
+    {MOD_KEY, XK_s, change_floating},
+};
+
+static struct keybind workspace_keybinds[] = {
+    [0] = {MOD_KEY, XK_1}, [1] = {MOD_KEY, XK_2}, [2] = {MOD_KEY, XK_3},
+    [3] = {MOD_KEY, XK_4}, [4] = {MOD_KEY, XK_5}, [5] = {MOD_KEY, XK_6},
+    [6] = {MOD_KEY, XK_7}, [7] = {MOD_KEY, XK_8}, [8] = {MOD_KEY, XK_9},
+    [9] = {MOD_KEY, XK_0},
 };
 
 void (*handlers[30])(xcb_generic_event_t *) = {
@@ -157,8 +165,15 @@ xcb_keycode_t get_keycode(xcb_keysym_t keysym) {
 void on_key_pressed(xcb_generic_event_t *e) {
     xcb_key_press_event_t *ev = (xcb_key_press_event_t *)e;
 
-    if (ev->detail >= 10 && ev->detail <= 20) {
-        switch_workspace(ev->detail - 10);
+    // if (ev->detail >= 10 && ev->detail <= 20) {
+    //    switch_workspace(ev->detail - 10);
+    //}
+
+    for (int i = 0; i < LENGTH(workspace_keybinds); i++) {
+        struct keybind k = workspace_keybinds[i];
+        if (ev->detail == get_keycode(k.keysym) && ev->state == k.mod) {
+            switch_workspace(i);
+        }
     }
 
     for (int i = 0; i < LENGTH(keybinds); i++) {
@@ -248,8 +263,9 @@ void setup_bindings() {
                      XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
     }
 
-    for (int i = 0; i < 10; i++) {
-        xcb_grab_key(conn, 0, screen->root, MOD_KEY, i + 10,
+    for (int i = 0; i < LENGTH(workspace_keybinds); i++) {
+        struct keybind k = workspace_keybinds[i];
+        xcb_grab_key(conn, 0, screen->root, k.mod, get_keycode(k.keysym),
                      XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
     }
 }
