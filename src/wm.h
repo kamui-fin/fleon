@@ -57,6 +57,7 @@ void close_focused();
 void change_fullscreen();
 void change_floating();
 void change_workspace(int workspace_idx);
+void move_window_to_workspace(struct client* c, int workspace_idx);
 void set_border(xcb_window_t win, int width, int color);
 xcb_keycode_t get_keycode(xcb_keysym_t keysym);
 
