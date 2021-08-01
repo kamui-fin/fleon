@@ -170,10 +170,6 @@ xcb_keycode_t get_keycode(xcb_keysym_t keysym) {
 void on_key_pressed(xcb_generic_event_t* e) {
     xcb_key_press_event_t* ev = (xcb_key_press_event_t*)e;
 
-    // if (ev->detail >= 10 && ev->detail <= 20) {
-    //    switch_workspace(ev->detail - 10);
-    //}
-
     for (int i = 0; i < LENGTH(workspace_keybinds); i++) {
         struct keybind k = workspace_keybinds[i];
         if (ev->detail == get_keycode(k.keysym)) {
@@ -195,7 +191,7 @@ void on_key_pressed(xcb_generic_event_t* e) {
     for (int i = 0; i < LENGTH(keybinds); i++) {
         struct keybind k = keybinds[i];
         if (ev->detail == get_keycode(k.keysym) && ev->state == k.mod) {
-            k.key_ev_handler();
+            k.key_ev_handler(k.arg);
             return;
         }
     }

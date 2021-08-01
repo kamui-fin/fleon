@@ -12,11 +12,18 @@ struct window_mgr {
     enum layout current_layout;
 };
 
+typedef union {
+    int i;
+    const void* v;
+} arg;
+
 struct keybind {
     xcb_mod_mask_t mod;
     xcb_keysym_t keysym;
     void (*key_ev_handler)();
+    arg arg;
 };
+
 
 struct geometry {
     int x, y;
