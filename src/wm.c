@@ -29,13 +29,28 @@ static struct keybind keybinds[] = {
     {MOD_KEY, XK_w, close_focused},
     {MOD_KEY, XK_f, change_fullscreen},
     {MOD_KEY, XK_s, change_floating},
-};
 
-static struct keybind workspace_keybinds[] = {
-    [0] = {MOD_KEY, XK_1}, [1] = {MOD_KEY, XK_2}, [2] = {MOD_KEY, XK_3},
-    [3] = {MOD_KEY, XK_4}, [4] = {MOD_KEY, XK_5}, [5] = {MOD_KEY, XK_6},
-    [6] = {MOD_KEY, XK_7}, [7] = {MOD_KEY, XK_8}, [8] = {MOD_KEY, XK_9},
-    [9] = {MOD_KEY, XK_0},
+    {MOD_KEY, XK_1, change_workspace, { .i = 0 }},
+    {MOD_KEY, XK_2, change_workspace, { .i = 1 }},
+    {MOD_KEY, XK_3, change_workspace, { .i = 2 }},
+    {MOD_KEY, XK_4, change_workspace, { .i = 3 }},
+    {MOD_KEY, XK_5, change_workspace, { .i = 4 }},
+    {MOD_KEY, XK_6, change_workspace, { .i = 5 }},
+    {MOD_KEY, XK_7, change_workspace, { .i = 6 }},
+    {MOD_KEY, XK_8, change_workspace, { .i = 7 }},
+    {MOD_KEY, XK_9, change_workspace, { .i = 8 }},
+    {MOD_KEY, XK_0, change_workspace, { .i = 9 }},
+
+    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_1, move_focused_to_workspace, { .i = 0 }},
+    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_2, move_focused_to_workspace, { .i = 1 }},
+    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_3, move_focused_to_workspace, { .i = 2 }},
+    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_4, move_focused_to_workspace, { .i = 3 }},
+    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_5, move_focused_to_workspace, { .i = 4 }},
+    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_6, move_focused_to_workspace, { .i = 5 }},
+    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_7, move_focused_to_workspace, { .i = 6 }},
+    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_8, move_focused_to_workspace, { .i = 7 }},
+    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_9, move_focused_to_workspace, { .i = 8 }},
+    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_0, move_focused_to_workspace, { .i = 9 }}
 };
 
 void (*handlers[30])(xcb_generic_event_t*) = {
@@ -137,13 +152,13 @@ void on_button_pressed(xcb_generic_event_t* e) {
     }
 }
 
-void switch_workspace(int workspace_idx) {
-    if (workspace_idx == current_workspace)
+void change_workspace(arg arg) {
+    if (arg.i == current_workspace)
         return;
     struct client* current = clients;
 
     while (current != NULL) {
-        if (current->workspace == workspace_idx) {
+        if (current->workspace == arg.i) {
             xcb_map_window(conn, current->win);
         } else if (current->workspace == current_workspace) {
             xcb_unmap_window(conn, current->win);
@@ -151,12 +166,12 @@ void switch_workspace(int workspace_idx) {
         current = current->next;
     }
 
-    current_workspace = workspace_idx;
+    current_workspace = arg.i;
 }
 
-void move_window_to_workspace(struct client* c, int workspace_idx) {
-    c->workspace = workspace_idx;
-    xcb_unmap_window(conn, c->win);
+void move_focused_to_workspace(arg arg) {
+    focused->workspace = arg.i;
+    xcb_unmap_window(conn, focused->win);
 }
 
 void on_button_release(xcb_generic_event_t* e) {
@@ -169,24 +184,6 @@ xcb_keycode_t get_keycode(xcb_keysym_t keysym) {
 
 void on_key_pressed(xcb_generic_event_t* e) {
     xcb_key_press_event_t* ev = (xcb_key_press_event_t*)e;
-
-    for (int i = 0; i < LENGTH(workspace_keybinds); i++) {
-        struct keybind k = workspace_keybinds[i];
-        if (ev->detail == get_keycode(k.keysym)) {
-            if (ev->state == k.mod) {
-                switch_workspace(i);
-            } else if (ev->state == (k.mod | XCB_MOD_MASK_SHIFT)) {
-                struct client* c;
-
-                if ((c = find_client(ev->child)) != NULL) {
-                    move_window_to_workspace(c, i);
-                    return;
-                }
-
-                TLOG("Input focus was null, ignoring");
-            }
-        }
-    }
 
     for (int i = 0; i < LENGTH(keybinds); i++) {
         struct keybind k = keybinds[i];
@@ -217,6 +214,7 @@ void on_motion_notify(xcb_generic_event_t* e) {
 
 void on_map_notify(xcb_generic_event_t* e) {
     xcb_map_notify_event_t* ev = (xcb_map_notify_event_t*)e;
+    focused = find_client(ev->window);
     set_border(ev->window, 10, 0xff0000);
 }
 
@@ -273,15 +271,6 @@ void setup_bindings() {
         struct keybind k = keybinds[x];
         xcb_grab_key(conn, 0, screen->root, k.mod, get_keycode(k.keysym),
                      XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
-    }
-
-    for (int i = 0; i < LENGTH(workspace_keybinds); i++) {
-        struct keybind k = workspace_keybinds[i];
-        xcb_grab_key(conn, 0, screen->root, k.mod, get_keycode(k.keysym),
-                     XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
-        xcb_grab_key(conn, 0, screen->root, k.mod | XCB_MOD_MASK_SHIFT,
-                     get_keycode(k.keysym), XCB_GRAB_MODE_ASYNC,
-                     XCB_GRAB_MODE_ASYNC);
     }
 }
 
