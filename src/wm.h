@@ -24,7 +24,6 @@ struct keybind {
     arg arg;
 };
 
-
 struct geometry {
     int x, y;
     int w, h;

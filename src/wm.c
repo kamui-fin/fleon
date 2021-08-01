@@ -27,31 +27,30 @@ struct client* mouse_on;
 xcb_key_symbols_t* keysyms;
 static struct keybind keybinds[] = {
     {MOD_KEY, XK_w, close_focused},
-    {MOD_KEY, XK_f, change_layout, { .i = 2 }}, //fullscreen
-    {MOD_KEY, XK_s, change_layout, { .i = 1 }}, //floating
+    {MOD_KEY, XK_f, change_layout, {.i = 2}}, // fullscreen
+    {MOD_KEY, XK_s, change_layout, {.i = 1}}, // floating
 
-    {MOD_KEY, XK_1, change_workspace, { .i = 0 }},
-    {MOD_KEY, XK_2, change_workspace, { .i = 1 }},
-    {MOD_KEY, XK_3, change_workspace, { .i = 2 }},
-    {MOD_KEY, XK_4, change_workspace, { .i = 3 }},
-    {MOD_KEY, XK_5, change_workspace, { .i = 4 }},
-    {MOD_KEY, XK_6, change_workspace, { .i = 5 }},
-    {MOD_KEY, XK_7, change_workspace, { .i = 6 }},
-    {MOD_KEY, XK_8, change_workspace, { .i = 7 }},
-    {MOD_KEY, XK_9, change_workspace, { .i = 8 }},
-    {MOD_KEY, XK_0, change_workspace, { .i = 9 }},
+    {MOD_KEY, XK_1, change_workspace, {.i = 0}},
+    {MOD_KEY, XK_2, change_workspace, {.i = 1}},
+    {MOD_KEY, XK_3, change_workspace, {.i = 2}},
+    {MOD_KEY, XK_4, change_workspace, {.i = 3}},
+    {MOD_KEY, XK_5, change_workspace, {.i = 4}},
+    {MOD_KEY, XK_6, change_workspace, {.i = 5}},
+    {MOD_KEY, XK_7, change_workspace, {.i = 6}},
+    {MOD_KEY, XK_8, change_workspace, {.i = 7}},
+    {MOD_KEY, XK_9, change_workspace, {.i = 8}},
+    {MOD_KEY, XK_0, change_workspace, {.i = 9}},
 
-    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_1, move_focused_to_workspace, { .i = 0 }},
-    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_2, move_focused_to_workspace, { .i = 1 }},
-    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_3, move_focused_to_workspace, { .i = 2 }},
-    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_4, move_focused_to_workspace, { .i = 3 }},
-    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_5, move_focused_to_workspace, { .i = 4 }},
-    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_6, move_focused_to_workspace, { .i = 5 }},
-    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_7, move_focused_to_workspace, { .i = 6 }},
-    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_8, move_focused_to_workspace, { .i = 7 }},
-    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_9, move_focused_to_workspace, { .i = 8 }},
-    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_0, move_focused_to_workspace, { .i = 9 }}
-};
+    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_1, move_focused_to_workspace, {.i = 0}},
+    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_2, move_focused_to_workspace, {.i = 1}},
+    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_3, move_focused_to_workspace, {.i = 2}},
+    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_4, move_focused_to_workspace, {.i = 3}},
+    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_5, move_focused_to_workspace, {.i = 4}},
+    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_6, move_focused_to_workspace, {.i = 5}},
+    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_7, move_focused_to_workspace, {.i = 6}},
+    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_8, move_focused_to_workspace, {.i = 7}},
+    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_9, move_focused_to_workspace, {.i = 8}},
+    {MOD_KEY | XCB_MOD_MASK_SHIFT, XK_0, move_focused_to_workspace, {.i = 9}}};
 
 void (*handlers[30])(xcb_generic_event_t*) = {
     [XCB_MAP_REQUEST] = &on_map_request,
@@ -76,13 +75,16 @@ struct client* find_client(xcb_window_t w) {
 }
 
 void change_layout(arg arg) {
-    switch(arg.i) {
-        case 1:
-            change_floating();
-        case 2:
-            change_fullscreen();
-        default:
-            change_floating();
+    switch (arg.i) {
+    case 1:
+        change_floating();
+        break;
+    case 2:
+        change_fullscreen();
+        break;
+    default:
+        change_floating();
+        break;
     }
 }
 
