@@ -61,6 +61,7 @@ void on_map_notify(xcb_generic_event_t* e);
 void on_configure_notify(xcb_generic_event_t* e);
 
 void close_focused();
+void change_layout(arg arg);
 void change_fullscreen();
 void change_floating();
 void change_workspace(arg arg);

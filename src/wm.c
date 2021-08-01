@@ -27,8 +27,8 @@ struct client* mouse_on;
 xcb_key_symbols_t* keysyms;
 static struct keybind keybinds[] = {
     {MOD_KEY, XK_w, close_focused},
-    {MOD_KEY, XK_f, change_fullscreen},
-    {MOD_KEY, XK_s, change_floating},
+    {MOD_KEY, XK_f, change_layout, { .i = 2 }}, //fullscreen
+    {MOD_KEY, XK_s, change_layout, { .i = 1 }}, //floating
 
     {MOD_KEY, XK_1, change_workspace, { .i = 0 }},
     {MOD_KEY, XK_2, change_workspace, { .i = 1 }},
@@ -73,6 +73,17 @@ struct client* find_client(xcb_window_t w) {
         head = head->next;
     }
     return NULL;
+}
+
+void change_layout(arg arg) {
+    switch(arg.i) {
+        case 1:
+            change_floating();
+        case 2:
+            change_fullscreen();
+        default:
+            change_floating();
+    }
 }
 
 void client_add(xcb_window_t w) {
