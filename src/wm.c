@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <signal.h>
 #include <errno.h>
+#include <unistd.h>
 #include <wait.h>
 
 #include <xcb/xcb.h>
@@ -28,6 +29,7 @@ struct client* mouse_on;
 
 xcb_key_symbols_t* keysyms;
 static struct keybind keybinds[] = {
+    {MOD_KEY, XK_Return, spawn, {.v = "alacritty"}},
     {MOD_KEY, XK_w, close_focused},
     {MOD_KEY, XK_f, change_layout, {.i = 2}}, // fullscreen
     {MOD_KEY, XK_s, change_layout, {.i = 1}}, // floating
@@ -65,7 +67,7 @@ void (*handlers[30])(xcb_generic_event_t*) = {
     [XCB_MOTION_NOTIFY] = &on_motion_notify,
 };
 
-struct window_mgr wm = {.current_layout = FLOATING};
+struct window_mgr wm = {.current_layout = TILE_VERTICAL};
 
 struct client* find_client(xcb_window_t w) {
     struct client* head = clients;
@@ -86,9 +88,6 @@ void change_layout(arg arg) {
     case 2:
         change_fullscreen();
         break;
-    default:
-        change_floating();
-        break;
     }
 }
 
@@ -101,7 +100,7 @@ void client_add(xcb_window_t w) {
     new_client->geom.y = geom->y;
     new_client->geom.w = geom->width;
     new_client->geom.h = geom->height;
-    new_client->border_size = geom->border_width;
+    new_client->border_size = BORDER_SIZE;
     new_client->next = clients;
     new_client->workspace = current_workspace;
     clients = new_client;
@@ -232,7 +231,10 @@ void on_motion_notify(xcb_generic_event_t* e) {
 void on_map_notify(xcb_generic_event_t* e) {
     xcb_map_notify_event_t* ev = (xcb_map_notify_event_t*)e;
     focused = find_client(ev->window);
-    set_border(ev->window, 10, 0xff0000);
+    set_border(ev->window, BORDER_SIZE, 0xff0000);
+    if (clients->next == NULL) {
+        maximize(clients);
+    }
 }
 
 void on_configure_notify(xcb_generic_event_t* e) {
@@ -258,17 +260,33 @@ bool existing_wm(void) {
 
 void close_focused() { client_kill(focused); }
 
+void maximize(struct client* c) {
+    int full_w = screen->width_in_pixels - 2 * c->border_size;
+    int full_h = screen->height_in_pixels - 2 * c->border_size;
+    client_move_resize(c, 0, 0, full_w, full_h);
+}
+
 void change_fullscreen() {
-    wm.current_layout = FULL_SCREEN;
-    int full_w = screen->width_in_pixels - 2 * focused->border_size;
-    int full_h = screen->height_in_pixels - 2 * focused->border_size;
-    client_move_resize(focused, 0, 0, full_w, full_h);
+    focused->isFloating = false;
+    focused->isFullscreen = true;
+    maximize(clients);
 }
 
 void change_floating() {
-    wm.current_layout = FLOATING;
+    focused->isFullscreen = false;
+    focused->isFloating = true;
     client_move_resize(focused, focused->prev_geom.x, focused->prev_geom.y,
                        focused->prev_geom.w, focused->prev_geom.h);
+}
+
+void spawn(arg arg) {
+    int pid = fork();
+    if (pid == -1) {
+        WLOG("Error forking")
+    } else if (pid == 0) {
+        execvp((char*)arg.v, NULL);
+        perror("FAILED!");
+    }
 }
 
 void setup_bindings() {
@@ -339,6 +357,7 @@ void sig_handler(int sig) {
     case SIGINT:
     case SIGTERM:
         sigcode = sig;
+        quit(sig);
         break;
     }
 }
@@ -349,7 +368,7 @@ void run() {
     signal(SIGTERM, sig_handler);
     xcb_generic_event_t* e;
 
-    while (sigcode == 0) {
+    while (true) {
         e = xcb_wait_for_event(conn);
         xcb_ev_handler_t* handler = handlers[e->response_type & ~0x80];
         if (handler) {
@@ -369,5 +388,4 @@ void run() {
 int main(int argc, char* argv[]) {
     initialize();
     run();
-    quit(sigcode);
 }

@@ -6,7 +6,9 @@
      XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_PROPERTY_CHANGE |     \
      XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_KEY_RELEASE)
 
-enum layout { FLOATING, FULL_SCREEN };
+#define BORDER_SIZE 10
+
+enum layout { TILE_VERTICAL, TILE_HORIZONTAL };
 
 struct window_mgr {
     enum layout current_layout;
@@ -36,6 +38,7 @@ struct client {
     struct geometry prev_geom;
     int border_size;
     int workspace;
+    bool isFullscreen, isFloating;
 };
 
 typedef void(xcb_ev_handler_t)(xcb_generic_event_t*);
@@ -59,7 +62,9 @@ void on_motion_notify(xcb_generic_event_t* e);
 void on_map_notify(xcb_generic_event_t* e);
 void on_configure_notify(xcb_generic_event_t* e);
 
+void spawn(arg arg);
 void close_focused();
+void maximize(struct client* c);
 void change_layout(arg arg);
 void change_fullscreen();
 void change_floating();
@@ -73,5 +78,5 @@ void setup_bindings();
 void initialize();
 bool existing_wm(void);
 void quit(int status);
-void sigint_quit();
+void sig_handler();
 void run();
