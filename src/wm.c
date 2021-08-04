@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <signal.h>
+#include <errno.h>
+#include <wait.h>
 
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
@@ -11,7 +13,7 @@
 #include "wm.h"
 
 /* Global state */
-struct window_mgr wm;
+int sigcode = 0;
 xcb_connection_t* conn;
 const xcb_setup_t* setup;
 xcb_screen_t* screen;
@@ -62,6 +64,8 @@ void (*handlers[30])(xcb_generic_event_t*) = {
     [XCB_KEY_RELEASE] = &on_key_release,
     [XCB_MOTION_NOTIFY] = &on_motion_notify,
 };
+
+struct window_mgr wm = {.current_layout = FLOATING};
 
 struct client* find_client(xcb_window_t w) {
     struct client* head = clients;
@@ -294,6 +298,8 @@ void quit(int status) {
         free(head);
         head = temp;
     }
+    xcb_set_input_focus(conn, XCB_NONE, XCB_INPUT_FOCUS_POINTER_ROOT,
+                        XCB_CURRENT_TIME);
     xcb_ungrab_key(conn, XCB_GRAB_ANY, screen->root, XCB_BUTTON_MASK_ANY);
     xcb_ungrab_button(conn, XCB_BUTTON_INDEX_ANY, screen->root,
                       XCB_MOD_MASK_ANY);
@@ -303,8 +309,6 @@ void quit(int status) {
 }
 
 void initialize() {
-    wm = (struct window_mgr){.current_layout = FLOATING};
-
     int screen_num;
     conn = xcb_connect(NULL, &screen_num);
     if (xcb_connection_has_error(conn)) {
@@ -323,13 +327,29 @@ void initialize() {
     xcb_flush(conn);
 }
 
-void sigint_quit() { quit(130); }
+void sig_handler(int sig) {
+    pid_t pid;
+    int status;
+
+    switch (sig) {
+    case SIGCHLD:
+        while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
+            ;
+        break;
+    case SIGINT:
+    case SIGTERM:
+        sigcode = sig;
+        break;
+    }
+}
 
 void run() {
-    signal(SIGINT, sigint_quit);
+    signal(SIGCHLD, sig_handler);
+    signal(SIGINT, sig_handler);
+    signal(SIGTERM, sig_handler);
     xcb_generic_event_t* e;
 
-    while (1) {
+    while (sigcode == 0) {
         e = xcb_wait_for_event(conn);
         xcb_ev_handler_t* handler = handlers[e->response_type & ~0x80];
         if (handler) {
@@ -349,5 +369,5 @@ void run() {
 int main(int argc, char* argv[]) {
     initialize();
     run();
-    quit(0);
+    quit(sigcode);
 }
