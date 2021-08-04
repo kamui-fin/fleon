@@ -1,7 +1,7 @@
 CC = gcc
 OUT_DIR = build
 SRC_DIR = src
-TARGET = featherbox
+TARGET = fleon
 CFLAGS = -pedantic -Wall -Wextra -march=native -DDEBUG -g
 LDFLAGS = -lxcb -lxcb-keysyms
 INCLUDES = -I$(SRC_DIR)
