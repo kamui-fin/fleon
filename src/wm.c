@@ -285,7 +285,6 @@ void spawn(arg arg) {
         WLOG("Error forking")
     } else if (pid == 0) {
         execvp((char*)arg.v, NULL);
-        perror("FAILED!");
     }
 }
 
