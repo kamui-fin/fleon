@@ -59,6 +59,7 @@ static struct keybind keybinds[] = {
 void (*handlers[30])(xcb_generic_event_t*) = {
     [XCB_MAP_REQUEST] = &on_map_request,
     [XCB_MAP_NOTIFY] = &on_map_notify,
+    [XCB_UNMAP_NOTIFY] = &on_unmap_notify,
     [XCB_CONFIGURE_NOTIFY] = &on_configure_notify,
     [XCB_BUTTON_PRESS] = &on_button_pressed,
     [XCB_BUTTON_RELEASE] = &on_button_release,
@@ -78,6 +79,26 @@ struct client* find_client(xcb_window_t w) {
         head = head->next;
     }
     return NULL;
+}
+
+void del_client(xcb_window_t w) {
+    struct client* tmp = clients;
+    struct client* prev;
+    if (tmp != NULL && tmp->win == w) {
+        clients = tmp->next;
+        free(tmp);
+        return;
+    }
+
+    while (tmp != NULL) {
+        if (tmp->win == w) {
+            prev->next = tmp->next;
+            free(tmp);
+            return;
+        }
+        prev = tmp;
+        tmp = tmp->next;
+    }
 }
 
 void change_layout(arg arg) {
@@ -142,6 +163,11 @@ void on_map_request(xcb_generic_event_t* e) {
     xcb_map_request_event_t* ev = (xcb_map_request_event_t*)e;
     client_add(ev->window);
     xcb_map_window(conn, ev->window);
+}
+
+void on_unmap_notify(xcb_generic_event_t* e) {
+    xcb_unmap_notify_event_t* ev = (xcb_unmap_notify_event_t*)e;
+    del_client(ev->window);
 }
 
 void on_button_pressed(xcb_generic_event_t* e) {
@@ -232,6 +258,7 @@ void on_map_notify(xcb_generic_event_t* e) {
     xcb_map_notify_event_t* ev = (xcb_map_notify_event_t*)e;
     focused = find_client(ev->window);
     set_border(ev->window, BORDER_SIZE, 0xff0000);
+
     if (clients->next == NULL) {
         maximize(clients);
     }

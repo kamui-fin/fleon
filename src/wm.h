@@ -60,6 +60,7 @@ void on_key_pressed(xcb_generic_event_t* e);
 void on_key_release(xcb_generic_event_t* e);
 void on_motion_notify(xcb_generic_event_t* e);
 void on_map_notify(xcb_generic_event_t* e);
+void on_unmap_notify(xcb_generic_event_t* e);
 void on_configure_notify(xcb_generic_event_t* e);
 
 void spawn(arg arg);
