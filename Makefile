@@ -1,26 +1,20 @@
 CC = gcc
-OUT_DIR = build
-SRC_DIR = src
-TARGET = fleon
 CFLAGS = -pedantic -Wall -Wextra -march=native -DDEBUG -g
-LDFLAGS = -lxcb -lxcb-keysyms
-INCLUDES = -I$(SRC_DIR)
+LDFLAGS = -lxcb -lxcb-keysyms -lconfig
 RM = rm -rf
 
-SRC = $(shell find $(SRC_DIR) -name *.c -type f)
-OBJ = $(shell echo "$(SRC:.c=.o)" | sed -e "s/$(SRC_DIR)\//$(OUT_DIR)\//g")
+SRC = fleon.c
+OBJ = $(SRC:.c=.o)
+TARGET = fleon
 
-$(OUT_DIR)/$(TARGET): $(OBJ)
-	$(CC) $< -o $@ $(LDFLAGS)
+$(TARGET): $(OBJ)
+	$(CC) $(LDFLAGS) -o $@ $^
 
-$(OBJ): $(OUT_DIR)/%.o: $(SRC_DIR)/%.c | $(OUT_DIR)/
-	$(CC) $(CFLAGS) -c $< -o $@ 
-
-$(OUT_DIR)/:
-	mkdir -p $@
+%.o: %.c
+	$(CC) $(CFLAGS) -c -o $@ $^
 
 clean:
-	$(RM) $(OUT_DIR)
+	$(RM) $(OBJ) $(TARGET)
 
 format:
 	find . -regex '.*\.\(c\|h\)' -exec clang-format -style=file -i {} \; 

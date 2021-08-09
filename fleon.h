@@ -8,7 +8,9 @@
 
 #define BORDER_SIZE 10
 
-enum layout { TILE_VERTICAL, TILE_HORIZONTAL };
+static const char* TERMINAL[1] = {"alacritty"};
+
+enum layout { FLOATING };
 
 struct window_mgr {
     enum layout current_layout;
@@ -16,7 +18,7 @@ struct window_mgr {
 
 typedef union {
     int i;
-    const void* v;
+    char* const* v;
 } arg;
 
 struct keybind {
@@ -45,6 +47,7 @@ typedef void(xcb_ev_handler_t)(xcb_generic_event_t*);
 
 /* Client managment */
 struct client* find_client(xcb_window_t w);
+void del_client(xcb_window_t w);
 void client_add(xcb_window_t w);
 void client_kill(struct client* c);
 void client_resize(struct client* c, int w, int h);
@@ -60,24 +63,24 @@ void on_key_pressed(xcb_generic_event_t* e);
 void on_key_release(xcb_generic_event_t* e);
 void on_motion_notify(xcb_generic_event_t* e);
 void on_map_notify(xcb_generic_event_t* e);
-void on_unmap_notify(xcb_generic_event_t* e);
+void on_destroy_notify(xcb_generic_event_t* e);
 void on_configure_notify(xcb_generic_event_t* e);
 
 void spawn(arg arg);
-void close_focused();
 void maximize(struct client* c);
+void set_border(xcb_window_t win, int width, int color);
+xcb_keycode_t get_keycode(xcb_keysym_t keysym);
+void close_focused();
 void change_layout(arg arg);
 void change_fullscreen();
 void change_floating();
 void change_workspace(arg arg);
 void move_focused_to_workspace(arg arg);
-void set_border(xcb_window_t win, int width, int color);
-xcb_keycode_t get_keycode(xcb_keysym_t keysym);
 
 /* Setup and teardown */
+bool existing_wm(void);
 void setup_bindings();
 void initialize();
-bool existing_wm(void);
 void quit(int status);
 void sig_handler();
 void run();

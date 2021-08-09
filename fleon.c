@@ -11,7 +11,7 @@
 #include <X11/keysym.h>
 #include <xcb/xcb_keysyms.h>
 #include "utils.h"
-#include "wm.h"
+#include "fleon.h"
 
 /* Global state */
 int sigcode = 0;
@@ -29,7 +29,7 @@ struct client* mouse_on;
 
 xcb_key_symbols_t* keysyms;
 static struct keybind keybinds[] = {
-    {MOD_KEY, XK_Return, spawn, {.v = "alacritty"}},
+    {MOD_KEY, XK_Return, spawn, {.v = TERMINAL}},
     {MOD_KEY, XK_w, close_focused},
     {MOD_KEY, XK_f, change_layout, {.i = 2}}, // fullscreen
     {MOD_KEY, XK_s, change_layout, {.i = 1}}, // floating
@@ -59,7 +59,7 @@ static struct keybind keybinds[] = {
 void (*handlers[30])(xcb_generic_event_t*) = {
     [XCB_MAP_REQUEST] = &on_map_request,
     [XCB_MAP_NOTIFY] = &on_map_notify,
-    [XCB_UNMAP_NOTIFY] = &on_unmap_notify,
+    [XCB_DESTROY_NOTIFY] = &on_destroy_notify,
     [XCB_CONFIGURE_NOTIFY] = &on_configure_notify,
     [XCB_BUTTON_PRESS] = &on_button_pressed,
     [XCB_BUTTON_RELEASE] = &on_button_release,
@@ -68,7 +68,7 @@ void (*handlers[30])(xcb_generic_event_t*) = {
     [XCB_MOTION_NOTIFY] = &on_motion_notify,
 };
 
-struct window_mgr wm = {.current_layout = TILE_VERTICAL};
+struct window_mgr wm = {.current_layout = FLOATING};
 
 struct client* find_client(xcb_window_t w) {
     struct client* head = clients;
@@ -101,29 +101,23 @@ void del_client(xcb_window_t w) {
     }
 }
 
-void change_layout(arg arg) {
-    switch (arg.i) {
-    case 1:
-        change_floating();
-        break;
-    case 2:
-        change_fullscreen();
-        break;
-    }
-}
-
 void client_add(xcb_window_t w) {
     struct client* new_client = malloc(sizeof(struct client));
     xcb_get_geometry_reply_t* geom =
         xcb_get_geometry_reply(conn, xcb_get_geometry(conn, w), NULL);
-    new_client->win = w;
+
     new_client->geom.x = geom->x;
     new_client->geom.y = geom->y;
     new_client->geom.w = geom->width;
     new_client->geom.h = geom->height;
+    new_client->win = w;
     new_client->border_size = BORDER_SIZE;
     new_client->next = clients;
     new_client->workspace = current_workspace;
+
+    if (wm.current_layout == FLOATING) {
+        new_client->isFloating = true;
+    }
     clients = new_client;
 }
 
@@ -154,20 +148,12 @@ void client_raise(struct client* c) {
     xcb_configure_window(conn, c->win, XCB_CONFIG_WINDOW_STACK_MODE, arg);
 }
 
-void set_border(xcb_window_t win, int width, int color) {
-    xcb_configure_window(conn, win, XCB_CONFIG_WINDOW_BORDER_WIDTH, &width);
-    xcb_change_window_attributes(conn, win, XCB_CW_BORDER_PIXEL, &color);
-}
-
 void on_map_request(xcb_generic_event_t* e) {
     xcb_map_request_event_t* ev = (xcb_map_request_event_t*)e;
     client_add(ev->window);
     xcb_map_window(conn, ev->window);
-}
-
-void on_unmap_notify(xcb_generic_event_t* e) {
-    xcb_unmap_notify_event_t* ev = (xcb_unmap_notify_event_t*)e;
-    del_client(ev->window);
+    client_move_resize(clients, clients->geom.x, clients->geom.y,
+                       clients->geom.w, clients->geom.h);
 }
 
 void on_button_pressed(xcb_generic_event_t* e) {
@@ -194,6 +180,115 @@ void on_button_pressed(xcb_generic_event_t* e) {
     }
 }
 
+void on_button_release(xcb_generic_event_t* e) {
+    xcb_ungrab_pointer(conn, XCB_CURRENT_TIME);
+}
+
+void on_key_pressed(xcb_generic_event_t* e) {
+    xcb_key_press_event_t* ev = (xcb_key_press_event_t*)e;
+
+    for (int i = 0; i < LENGTH(keybinds); i++) {
+        struct keybind k = keybinds[i];
+        if (ev->detail == get_keycode(k.keysym) && ev->state == k.mod) {
+            k.key_ev_handler(k.arg);
+            return;
+        }
+    }
+}
+
+void on_key_release(xcb_generic_event_t* e) {
+    xcb_key_release_event_t* ev = (xcb_key_release_event_t*)e;
+}
+
+void on_motion_notify(xcb_generic_event_t* e) {
+    xcb_motion_notify_event_t* ev = (xcb_motion_notify_event_t*)e;
+    struct client* c = find_client(ev->child);
+    if (c && c->isFloating) {
+        int xdiff = ev->root_x - pointer->root_x;
+        int ydiff = ev->root_y - pointer->root_y;
+        if (ev->state == (XCB_MOD_MASK_1 | XCB_BUTTON_MASK_1)) {
+            client_move(c, geometry->x + xdiff, geometry->y + ydiff);
+        } else if (ev->state == (XCB_MOD_MASK_1 | XCB_BUTTON_MASK_3)) {
+            client_resize(c, geometry->width + xdiff, geometry->height + ydiff);
+        }
+    }
+}
+
+void on_map_notify(xcb_generic_event_t* e) {
+    xcb_map_notify_event_t* ev = (xcb_map_notify_event_t*)e;
+    focused = find_client(ev->window);
+    set_border(ev->window, BORDER_SIZE, 0xff0000);
+}
+
+void on_destroy_notify(xcb_generic_event_t* e) {
+    xcb_destroy_notify_event_t* ev = (xcb_destroy_notify_event_t*)e;
+    del_client(ev->window);
+}
+
+void on_configure_notify(xcb_generic_event_t* e) {
+    xcb_configure_notify_event_t* ev = (xcb_configure_notify_event_t*)e;
+    struct client* c = find_client(ev->window);
+    struct geometry new_geom = {ev->x, ev->y, ev->width, ev->height};
+    c->prev_geom.x = c->geom.x;
+    c->prev_geom.y = c->geom.y;
+    c->prev_geom.w = c->geom.w;
+    c->prev_geom.h = c->geom.h;
+    c->geom = new_geom;
+    c->border_size = ev->border_width;
+}
+
+void spawn(arg arg) {
+    int pid = fork();
+    if (pid == -1) {
+        WLOG("Error forking")
+    } else if (pid == 0) {
+        (void)setsid();
+        execvp(arg.v[0], (char* const*)arg.v);
+        exit(1);
+    }
+}
+
+void maximize(struct client* c) {
+    int full_w = screen->width_in_pixels - 2 * c->border_size;
+    int full_h = screen->height_in_pixels - 2 * c->border_size;
+    client_move_resize(c, 0, 0, full_w, full_h);
+}
+
+void set_border(xcb_window_t win, int width, int color) {
+    xcb_configure_window(conn, win, XCB_CONFIG_WINDOW_BORDER_WIDTH, &width);
+    xcb_change_window_attributes(conn, win, XCB_CW_BORDER_PIXEL, &color);
+}
+
+xcb_keycode_t get_keycode(xcb_keysym_t keysym) {
+    return *xcb_key_symbols_get_keycode(keysyms, keysym);
+}
+
+void close_focused() { client_kill(focused); }
+
+void change_layout(arg arg) {
+    switch (arg.i) {
+    case 1:
+        change_floating();
+        break;
+    case 2:
+        change_fullscreen();
+        break;
+    }
+}
+
+void change_fullscreen() {
+    focused->isFloating = false;
+    focused->isFullscreen = true;
+    maximize(clients);
+}
+
+void change_floating() {
+    focused->isFullscreen = false;
+    focused->isFloating = true;
+    client_move_resize(focused, focused->prev_geom.x, focused->prev_geom.y,
+                       focused->prev_geom.w, focused->prev_geom.h);
+}
+
 void change_workspace(arg arg) {
     if (arg.i == current_workspace)
         return;
@@ -216,66 +311,6 @@ void move_focused_to_workspace(arg arg) {
     xcb_unmap_window(conn, focused->win);
 }
 
-void on_button_release(xcb_generic_event_t* e) {
-    xcb_ungrab_pointer(conn, XCB_CURRENT_TIME);
-}
-
-xcb_keycode_t get_keycode(xcb_keysym_t keysym) {
-    return *xcb_key_symbols_get_keycode(keysyms, keysym);
-}
-
-void on_key_pressed(xcb_generic_event_t* e) {
-    xcb_key_press_event_t* ev = (xcb_key_press_event_t*)e;
-
-    for (int i = 0; i < LENGTH(keybinds); i++) {
-        struct keybind k = keybinds[i];
-        if (ev->detail == get_keycode(k.keysym) && ev->state == k.mod) {
-            k.key_ev_handler(k.arg);
-            return;
-        }
-    }
-}
-
-void on_key_release(xcb_generic_event_t* e) {
-    xcb_key_release_event_t* ev = (xcb_key_release_event_t*)e;
-}
-
-void on_motion_notify(xcb_generic_event_t* e) {
-    xcb_motion_notify_event_t* ev = (xcb_motion_notify_event_t*)e;
-    struct client* c = find_client(ev->child);
-    if (c) {
-        int xdiff = ev->root_x - pointer->root_x;
-        int ydiff = ev->root_y - pointer->root_y;
-        if (ev->state == (XCB_MOD_MASK_1 | XCB_BUTTON_MASK_1)) {
-            client_move(c, geometry->x + xdiff, geometry->y + ydiff);
-        } else if (ev->state == (XCB_MOD_MASK_1 | XCB_BUTTON_MASK_3)) {
-            client_resize(c, geometry->width + xdiff, geometry->height + ydiff);
-        }
-    }
-}
-
-void on_map_notify(xcb_generic_event_t* e) {
-    xcb_map_notify_event_t* ev = (xcb_map_notify_event_t*)e;
-    focused = find_client(ev->window);
-    set_border(ev->window, BORDER_SIZE, 0xff0000);
-
-    if (clients->next == NULL) {
-        maximize(clients);
-    }
-}
-
-void on_configure_notify(xcb_generic_event_t* e) {
-    xcb_configure_notify_event_t* ev = (xcb_configure_notify_event_t*)e;
-    struct client* c = find_client(ev->window);
-    struct geometry new_geom = {ev->x, ev->y, ev->width, ev->height};
-    c->prev_geom.x = c->geom.x;
-    c->prev_geom.y = c->geom.y;
-    c->prev_geom.w = c->geom.w;
-    c->prev_geom.h = c->geom.h;
-    c->geom = new_geom;
-    c->border_size = ev->border_width;
-}
-
 bool existing_wm(void) {
     xcb_generic_error_t* error;
     uint32_t values[] = {ROOT_EVENT_MASK};
@@ -283,36 +318,6 @@ bool existing_wm(void) {
         conn, xcb_change_window_attributes_checked(conn, screen->root,
                                                    XCB_CW_EVENT_MASK, values));
     return error != NULL;
-}
-
-void close_focused() { client_kill(focused); }
-
-void maximize(struct client* c) {
-    int full_w = screen->width_in_pixels - 2 * c->border_size;
-    int full_h = screen->height_in_pixels - 2 * c->border_size;
-    client_move_resize(c, 0, 0, full_w, full_h);
-}
-
-void change_fullscreen() {
-    focused->isFloating = false;
-    focused->isFullscreen = true;
-    maximize(clients);
-}
-
-void change_floating() {
-    focused->isFullscreen = false;
-    focused->isFloating = true;
-    client_move_resize(focused, focused->prev_geom.x, focused->prev_geom.y,
-                       focused->prev_geom.w, focused->prev_geom.h);
-}
-
-void spawn(arg arg) {
-    int pid = fork();
-    if (pid == -1) {
-        WLOG("Error forking")
-    } else if (pid == 0) {
-        execvp((char*)arg.v, NULL);
-    }
 }
 
 void setup_bindings() {
@@ -335,23 +340,6 @@ void setup_bindings() {
     }
 }
 
-void quit(int status) {
-    struct client* head = clients;
-    while (head != NULL) {
-        struct client* temp = head->next;
-        free(head);
-        head = temp;
-    }
-    xcb_set_input_focus(conn, XCB_NONE, XCB_INPUT_FOCUS_POINTER_ROOT,
-                        XCB_CURRENT_TIME);
-    xcb_ungrab_key(conn, XCB_GRAB_ANY, screen->root, XCB_BUTTON_MASK_ANY);
-    xcb_ungrab_button(conn, XCB_BUTTON_INDEX_ANY, screen->root,
-                      XCB_MOD_MASK_ANY);
-    xcb_flush(conn);
-    xcb_disconnect(conn);
-    exit(status);
-}
-
 void initialize() {
     int screen_num;
     conn = xcb_connect(NULL, &screen_num);
@@ -369,6 +357,23 @@ void initialize() {
     keysyms = xcb_key_symbols_alloc(conn);
     setup_bindings();
     xcb_flush(conn);
+}
+
+void quit(int status) {
+    struct client* head = clients;
+    while (head != NULL) {
+        struct client* temp = head->next;
+        free(head);
+        head = temp;
+    }
+    xcb_set_input_focus(conn, XCB_NONE, XCB_INPUT_FOCUS_POINTER_ROOT,
+                        XCB_CURRENT_TIME);
+    xcb_ungrab_key(conn, XCB_GRAB_ANY, screen->root, XCB_BUTTON_MASK_ANY);
+    xcb_ungrab_button(conn, XCB_BUTTON_INDEX_ANY, screen->root,
+                      XCB_MOD_MASK_ANY);
+    xcb_flush(conn);
+    xcb_disconnect(conn);
+    exit(status);
 }
 
 void sig_handler(int sig) {
@@ -396,16 +401,18 @@ void run() {
 
     while (true) {
         e = xcb_wait_for_event(conn);
-        xcb_ev_handler_t* handler = handlers[e->response_type & ~0x80];
-        if (handler) {
-            handler(e);
-        } else {
-            TLOG("Ignoring event")
-        }
-        free(e);
-        if (xcb_connection_has_error(conn)) {
-            FLOG("An unexpected error has occured");
-            quit(1);
+        if (e) {
+            xcb_ev_handler_t* handler = handlers[e->response_type & ~0x80];
+            if (handler) {
+                handler(e);
+            } else {
+                TLOG("Ignoring event")
+            }
+            free(e);
+            if (xcb_connection_has_error(conn)) {
+                FLOG("An unexpected error has occured");
+                quit(1);
+            }
         }
         xcb_flush(conn);
     }

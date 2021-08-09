@@ -4,7 +4,8 @@ A next-generation X11 window manager built with C and XCB. This project aims to 
 ## Building 
 
 You will need the following dependencies first:
-1. [`libxcb-1.14`](https://xcb.freedesktop.org/) 
+1. [`>=libxcb-1.14`](https://xcb.freedesktop.org/) 
+2. [`>=libconfig-1.7.2`](https://hyperrealm.github.io/libconfig/) 
 
 ```bash
 $ git clone https://github.com/kamui-7/fleon.git
@@ -23,7 +24,7 @@ Xephyr -br -ac -noreset -screen 1500x900 :1
 
 Running the window manager inside of Xephyr is just a matter of passing in the right `DISPLAY` variable.
 ```bash
-DISPLAY=:1 ./build/fleon
+DISPLAY=:1 ./fleon
 ```
 
 ## License
