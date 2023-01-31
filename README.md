@@ -1,5 +1,5 @@
 # Fleon WM
-A next-generation X11 window manager built with C and XCB. This project aims to combine features of many of the popular windows managers. For example, you could have i3 tabs with a binary spaced partitioning layout. Or a full fledged floating mode with configurable titlebars which you could toggle into.
+A simple X11 window manager built with C and XCB, mainly built out of a curiosity in X.org and the inner workings of many WMs. 
 
 ## Building 
 
